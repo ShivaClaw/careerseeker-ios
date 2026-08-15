@@ -1,0 +1,71 @@
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--9C6B84B6E025C5B.txt
+Build of product 'conformance' complete! (2.19s)
+CareerSeeker Sync v1 — Swift conformance
+  spec       docs/Sync-Protocol.md
+  suite      p256-hkdf-sha256
+  cipher     AES-256-GCM
+  vectors    25 declared in index.json
+  toolchain  Swift 6.x · swift-crypto (BoringSSL)
+  corpus     sha256 6366a86092971dfed0d96a560de1095962e6ce172a83b5a46e3037e5af1ab2ba
+
+[ pairing — ECDH P-256 → HKDF derivations (§5.2) ]
+  ok   shared secret matches (ss = X coordinate, unhashed)
+  ok   k_e2p matches
+  ok   k_p2e matches
+  ok   relay token matches
+  ok   provisional relay token matches (§5.2.1, keyed on the one-time secret alone)
+  ok   6-digit confirm code matches
+  ok   sealed completion opens
+  ok   completion payload round-trips to the stated device_sig_pub + ts
+  ok   device signing key recovered from inside the ciphertext (relay never sees it)
+
+[ pairing — malicious relay key swap (§5.2.2) ]
+  ok   swapped phone_pub fails the tag (expect decrypt_failed)
+
+[ envelopes — ordered validation gauntlet (§3, §5, §6, §7) ]
+  ok   delta-basic: accepted and round-trips to plaintext_json
+  ok   doc-draft-email: accepted and round-trips to plaintext_json
+  ok   doc-edit-signed: accepted and round-trips to plaintext_json
+  ok   heartbeat-unicode: accepted and round-trips to plaintext_json
+  ok   empty-body: accepted and round-trips to plaintext_json
+  ok   invalid-seq-regression: rejected with replay_rejected
+  ok   invalid-truncated-tag: rejected with decrypt_failed
+  ok   invalid-aad-tampered-seq: rejected with decrypt_failed
+  ok   invalid-unknown-key-id: rejected with key_unknown
+  ok   invalid-unknown-kind: rejected with unknown_kind
+  ok   invalid-reserved-kind-l2: rejected with unknown_kind
+  ok   invalid-version: rejected with version_unsupported
+  ok   sig-tampered: rejected with bad_signature
+  ok   sig-by-revoked-key: rejected with bad_signature
+  ok   sig-missing-on-doc-edit: rejected with bad_signature
+  ok   sig-on-e2p: rejected with bad_signature
+  ok   invalid-padded-base64: rejected with decrypt_failed
+  ok   invalid-oversized: rejected with too_large
+  ok   rejected envelopes did not advance the e2p cursor (highest = 4, the last accepted)
+  ok   rejected envelopes did not advance the p2e cursor (highest = 1, the last accepted)
+  ok   post-forgery seq 5 passes the replay gate (fails at the tag, not as a replay)
+
+[ entitlement — engine-role Play verification (§4.3.2) ]
+  note: the phone is a courier here, never the verifier. Run for corpus coverage;
+        no iOS client code path calls this. See PlayEntitlementVerifier.swift.
+  ok   entitlement-valid: verifier returns accepted
+  ok   entitlement-tampered-json: verifier returns signature_invalid
+  ok   entitlement-wrong-product: verifier returns wrong_product
+  ok   entitlement-wrong-package: verifier returns wrong_package
+  ok   entitlement-not-purchased: verifier returns not_purchased
+
+[ hardening — beyond the corpus (implementation-defined) ]
+  ok   unknown top-level field rejected, not ignored (§3)
+  ok   JSON true is not accepted as seq 1
+  ok   envelope for another pairing rejected
+  ok   base64url decoder rejects standard-alphabet input
+  ok   base64url decoder rejects a 1-char final quantum
+  ok   base64url round-trips arbitrary bytes
+
+────────────────────────────────────────────
+  envelope vectors consumed : 18
+  checks passed             : 42
+  checks failed             : 0
+────────────────────────────────────────────

@@ -1,0 +1,33 @@
+{
+  "type": "envelope",
+  "name": "doc-edit-signed",
+  "valid": true,
+  "notes": "Phone-to-engine edit with the REAL envelope-level ECDSA P-256 signature (P1: replaces the P0 placeholder that sat inside the body). Consumers must verify sig over sig_input using device_sig_pub, then decrypt.",
+  "key_hex": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+  "aad": "v=1|pairing=p_7Fq2mXk9LtVbN3wR|dir=p2e|seq=1|ts=2026-06-11T14:02:11Z|key_id=k-2026-06-01",
+  "nonce_b64u": "LIT9nXV1XTJuQmP9",
+  "plaintext_json": {
+    "kind": "doc_edit",
+    "body": {
+      "app_id": "app_01H8XK",
+      "doc_kind": "cover_letter",
+      "base_rev": 4,
+      "new_text": "Revised opening paragraph."
+    }
+  },
+  "ciphertext_b64u": "liQUSAhICWndeWr-NaZRFNu6RDahgR9JSlTObeMP3zMOh1pweNXd0ch0Bk7pKG0gUrLusy6k_rM8RAQ7wJXC4VlVYHvl74LyZnY60zemnJyDzcK8GJ45WOpTxHYgj-pNWBuf2ZwwrERs617NUJinp7y0hXMU0dYN5w984KM4gHVad56NYpq09AFehBqtzvASow",
+  "sig_input": "careerseeker/v1/cmd|v=1|pairing=p_7Fq2mXk9LtVbN3wR|dir=p2e|seq=1|ts=2026-06-11T14:02:11Z|key_id=k-2026-06-01|LIT9nXV1XTJuQmP9|db3073eff605e011f0fdac9837787795b57d4258b1e26df0adebcc7b8658fc2a",
+  "device_sig_pub_b64u": "BKxF8K8_11xECd9NEpUYKVww4nL3-YazsWNpXFt8qJedrl7-l94OglqF3xmNW7jPgLdWjdOi4hYl0ClHTYQkVpE",
+  "envelope_json": {
+    "v": 1,
+    "pairing": "p_7Fq2mXk9LtVbN3wR",
+    "dir": "p2e",
+    "seq": 1,
+    "ts": "2026-06-11T14:02:11Z",
+    "key_id": "k-2026-06-01",
+    "nonce": "LIT9nXV1XTJuQmP9",
+    "ciphertext": "liQUSAhICWndeWr-NaZRFNu6RDahgR9JSlTObeMP3zMOh1pweNXd0ch0Bk7pKG0gUrLusy6k_rM8RAQ7wJXC4VlVYHvl74LyZnY60zemnJyDzcK8GJ45WOpTxHYgj-pNWBuf2ZwwrERs617NUJinp7y0hXMU0dYN5w984KM4gHVad56NYpq09AFehBqtzvASow",
+    "sig": "iFtAcwZJOKM8OSrpt2rfsuCUPqzjL0b7_KTm7czF3DIEK5OagnFH68sGgRiGzFVCXZgT7urQg2JB9jb4pIW-xw"
+  },
+  "expect_error": null
+}

@@ -1,0 +1,23 @@
+name: sync conformance (Swift)
+
+# Runs on Linux, deliberately. The point of this harness is that it needs no Mac and no
+# Apple Developer account: swift-crypto is API-compatible with CryptoKit for every
+# primitive Sync-Protocol v1 uses, so protocol conformance can be proven on the cheapest
+# runner in the matrix. A macOS job is added later to prove the CryptoKit half and the
+# Secure Enclave path — that one needs hardware, this one does not.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-24.04
+    container: swift:6.1-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build -c release
+      - name: Conformance against docs/sync-vectors/v1
+        run: swift run -c release conformance
