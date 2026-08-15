@@ -78,3 +78,23 @@ executed evidence are marked UNPROVEN. Newest entry last.
 
 <!-- Append new entries below. Format: date — headline; verified facts with numbers;
      findings; UNPROVEN items; what remains. -->
+
+## 2026-08-14 — T1 phone-role sender self-tests BLOCKED
+
+- Changed CareerSeekerSync to add PhoneEnvelopeSender: it seals p2e payloads with a
+  fresh AES-GCM nonce, signs state-changing payloads over the §5.4 input, and rejects
+  reused or regressed sender sequence numbers. The conformance runner now derives
+  pairing keys from the phone private key plus engine public key in pairing-basic,
+  checks each derived value against the engine-role result, seals a vector-backed
+  doc_edit through a software device key, opens it with EnvelopeReceiver, and checks
+  receiver-cursor advance plus sender sequence refusal. Vectors/, PROVENANCE.md, and
+  the workflow were not changed.
+- BLOCKER, attempt 1: swift build -c release and swift run -c release conformance could
+  not start because this Windows environment has no swift executable.
+- BLOCKER, attempt 2: no Docker runtime is installed and wsl -l -q reports that WSL is
+  not installed, so no Linux Swift runtime is available locally.
+- UNPROVEN: release build, conformance result and corpus digest, and all deliberate
+  mutation demonstrations. No test result is claimed.
+- Stopped after the required two attempts. Resume on a host with Swift 6 (or the
+  repository's Linux CI runtime), run both required gates, then demonstrate the three
+  new check groups fail under deliberate mutations before treating T1 as complete.

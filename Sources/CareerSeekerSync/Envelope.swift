@@ -81,6 +81,26 @@ public struct Envelope: Sendable {
     /// so two implementations in two languages cannot disagree about key order or
     /// number formatting.
     public var aad: Data {
+        Self.authenticatedData(
+            v: v,
+            pairing: pairing,
+            dir: dir,
+            seq: seq,
+            ts: ts,
+            keyId: keyId
+        )
+    }
+
+    /// Construct the §4.1 AAD before an envelope has been sealed. Senders and receivers
+    /// share this formatting function so their authenticated headers cannot drift.
+    public static func authenticatedData(
+        v: Int = SyncProtocol.version,
+        pairing: String,
+        dir: Direction,
+        seq: Int64,
+        ts: String,
+        keyId: String
+    ) -> Data {
         Data("v=\(v)|pairing=\(pairing)|dir=\(dir.rawValue)|seq=\(seq)|ts=\(ts)|key_id=\(keyId)".utf8)
     }
 }
