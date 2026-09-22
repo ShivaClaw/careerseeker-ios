@@ -215,9 +215,9 @@ check("pairing-high-bit-confirm: k_e2p matches",
 check("pairing-high-bit-confirm: k_p2e matches",
       hex(highBitDerived.kP2E.withUnsafeBytes { Data($0) }) == highBitExpected["k_p2e_hex"] as! String)
 check("pairing-high-bit-confirm: relay token matches",
-      Base64URL.encode(highBitDerived.relayToken) == highBitExpected["relay_token_b64u"] as! String)
+      highBitDerived.relayToken == highBitExpected["relay_token_b64u"] as! String)
 check("pairing-high-bit-confirm: provisional token matches",
-      Base64URL.encode(highBitDerived.provisionalToken)
+      PairingCrypto.provisionalRelayToken(oneTimeSecret: highBitSecret)
         == highBitExpected["provisional_token_b64u"] as! String)
 check("pairing-high-bit-confirm: unsigned, zero-padded confirmation matches",
       highBitDerived.confirmCode == highBitExpected["confirm"] as! String,
