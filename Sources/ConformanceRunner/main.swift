@@ -432,6 +432,47 @@ do {
     }
 }
 
+section("replay boundary — durable restart restoration (§6.2)")
+let restartVector = loadJSON("delta-basic")
+let restartWire = wireBytes(for: restartVector, name: "delta-basic")
+let beforeRestart = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: e2pKey,
+    keyP2E: p2eKey,
+    deviceSigningPublicKey: trustedDeviceKey
+)
+do {
+    _ = try beforeRestart.accept(wireBytes: restartWire)
+    check("pre-restart receiver accepts the first envelope", true)
+} catch {
+    check("pre-restart receiver accepts the first envelope", false, "rejected \(error)")
+}
+let durableBoundary = beforeRestart.replayBoundary
+check("accepted cursor is available for durable commit",
+      durableBoundary.engineToPhone == 1 && durableBoundary.phoneToEngine == 0)
+
+let afterRestart = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: e2pKey,
+    keyP2E: p2eKey,
+    deviceSigningPublicKey: trustedDeviceKey,
+    restoredReplayBoundary: durableBoundary
+)
+do {
+    _ = try afterRestart.accept(wireBytes: restartWire)
+    check("restored receiver rejects a replay after restart", false, "accepted")
+} catch let error as SyncError {
+    check("restored receiver rejects a replay after restart",
+          error == .replayRejected, "got \(error.rawValue)")
+} catch {
+    check("restored receiver rejects a replay after restart", false, "unexpected \(error)")
+}
+
+check("negative durable replay state is rejected instead of reset",
+      ReplayBoundary(engineToPhone: -1, phoneToEngine: 0) == nil)
+
 // Entitlement acknowledgements are an envelope-shaped family with their own receiver
 // context. Do not pack them into the envelope loop: adding a valid high-sequence case to
 // a shared cursor can make later negative cases reject as replays for the wrong reason.

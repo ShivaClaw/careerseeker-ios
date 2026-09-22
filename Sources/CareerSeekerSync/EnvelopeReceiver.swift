@@ -5,6 +5,26 @@ import CryptoKit
 import Crypto
 #endif
 
+/// Durable replay state for one pairing. Constructing it fails closed on corrupted
+/// negative values rather than silently resetting a cursor and reopening old traffic.
+public struct ReplayBoundary: Equatable, Sendable {
+    public let engineToPhone: Int64
+    public let phoneToEngine: Int64
+
+    public init?(engineToPhone: Int64 = 0, phoneToEngine: Int64 = 0) {
+        guard engineToPhone >= 0, phoneToEngine >= 0 else { return nil }
+        self.engineToPhone = engineToPhone
+        self.phoneToEngine = phoneToEngine
+    }
+
+    public static let zero = ReplayBoundary(validatedEngineToPhone: 0, phoneToEngine: 0)
+
+    fileprivate init(validatedEngineToPhone: Int64, phoneToEngine: Int64) {
+        self.engineToPhone = validatedEngineToPhone
+        self.phoneToEngine = phoneToEngine
+    }
+}
+
 /// The client-role receiver. Holds the active pairing's keys and the per-direction
 /// sequence cursors, and applies the §5–§7 checks **in a fixed order**.
 ///
@@ -38,23 +58,37 @@ public final class EnvelopeReceiver {
     /// vector that fails any implementation which trusts a per-envelope key.
     private let deviceSigningPublicKey: P256.Signing.PublicKey?
 
-    private var highestAccepted: [Direction: Int64] = [.engineToPhone: 0, .phoneToEngine: 0]
+    private var highestAccepted: [Direction: Int64]
 
     public init(
         pairingId: String,
         activeKeyId: String,
         keyE2P: SymmetricKey,
         keyP2E: SymmetricKey,
-        deviceSigningPublicKey: P256.Signing.PublicKey?
+        deviceSigningPublicKey: P256.Signing.PublicKey?,
+        restoredReplayBoundary: ReplayBoundary = .zero
     ) {
         self.pairingId = pairingId
         self.activeKeyId = activeKeyId
         self.keyE2P = keyE2P
         self.keyP2E = keyP2E
         self.deviceSigningPublicKey = deviceSigningPublicKey
+        self.highestAccepted = [
+            .engineToPhone: restoredReplayBoundary.engineToPhone,
+            .phoneToEngine: restoredReplayBoundary.phoneToEngine,
+        ]
     }
 
     public func highestAcceptedSeq(_ dir: Direction) -> Int64 { highestAccepted[dir] ?? 0 }
+
+    /// Snapshot after acceptance for the durable owner to commit atomically with the
+    /// corresponding replica update. See docs/C07-Durable-Replay-Ownership.md.
+    public var replayBoundary: ReplayBoundary {
+        ReplayBoundary(
+            validatedEngineToPhone: highestAcceptedSeq(.engineToPhone),
+            phoneToEngine: highestAcceptedSeq(.phoneToEngine)
+        )
+    }
 
     public func accept(wireBytes: Data) throws -> Accepted {
         // 1 — coarse wire-allocation guard before parsing. This is derived from the
