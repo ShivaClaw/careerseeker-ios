@@ -24,7 +24,7 @@ let package = Package(
         // On Apple platforms this dependency is inert: the sources prefer CryptoKit.
         // _CryptoExtras is used only by the engine-role Play verifier (RSA), never by
         // the client-role code — see PlayEntitlementVerifier.swift for why that matters.
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0")
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.1")
     ],
     targets: [
         .target(
