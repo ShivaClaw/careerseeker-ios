@@ -348,7 +348,9 @@ func wireBytes(for vector: [String: Any], name: String) -> Data {
             "ts": "2026-06-11T14:02:11Z",
             "key_id": index["active_key_id"] as! String,
             "nonce": vector["nonce_b64u"] as! String,
-            "ciphertext": String(repeating: "A", count: synthLen),
+            // The vector's synthetic length is in decoded ciphertext bytes, matching
+            // §3.1 and the C# harness. Encode those bytes for the wire representation.
+            "ciphertext": Base64URL.encode(Data(repeating: 0, count: synthLen)),
         ]
         return try! JSONSerialization.data(withJSONObject: envelope)
     }
@@ -531,6 +533,37 @@ var wrongPairing = baseEnvelope
 wrongPairing["seq"] = 901
 wrongPairing["pairing"] = "p_0000000000000000"
 rejects("envelope for another pairing rejected", wrongPairing, .pairingUnknown)
+
+let maximumCiphertext = Data(repeating: 0, count: SyncProtocol.maxCiphertextBytes)
+let maximumCiphertextB64u = Base64URL.encode(maximumCiphertext)
+check("maximum legal ciphertext expands to the derived base64url character cap",
+      maximumCiphertextB64u.count == SyncProtocol.maxCiphertextBase64URLCharacters,
+      "\(maximumCiphertextB64u.count)")
+
+var atCiphertextLimit = baseEnvelope
+atCiphertextLimit["seq"] = 902
+atCiphertextLimit["ciphertext"] = maximumCiphertextB64u
+rejects("maximum legal decoded ciphertext passes the size gate and reaches AEAD",
+        atCiphertextLimit, .decryptFailed)
+
+var overCiphertextLimit = baseEnvelope
+overCiphertextLimit["seq"] = 903
+overCiphertextLimit["ciphertext"] = Base64URL.encode(
+    Data(repeating: 0, count: SyncProtocol.maxCiphertextBytes + 1))
+rejects("first decoded ciphertext byte over the limit is too_large",
+        overCiphertextLimit, .tooLarge)
+
+do {
+    _ = try receiver.accept(
+        wireBytes: Data(repeating: 0x20, count: SyncProtocol.maxWireEnvelopeBytes + 1))
+    check("derived coarse wire-allocation guard rejects before parsing", false, "accepted")
+} catch let error as SyncError {
+    check("derived coarse wire-allocation guard rejects before parsing", error == .tooLarge,
+          "got \(error.rawValue)")
+} catch {
+    check("derived coarse wire-allocation guard rejects before parsing", false,
+          "unexpected \(error)")
+}
 
 check("base64url decoder rejects standard-alphabet input",
       (try? Base64URL.decode("a+b/c")) == nil)

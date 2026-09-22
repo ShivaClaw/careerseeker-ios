@@ -57,8 +57,10 @@ public final class EnvelopeReceiver {
     public func highestAcceptedSeq(_ dir: Direction) -> Int64 { highestAccepted[dir] ?? 0 }
 
     public func accept(wireBytes: Data) throws -> Accepted {
-        // 1 — size (§3.1). Before the parse, so an oversized body is never materialised.
-        guard wireBytes.count <= SyncProtocol.maxEnvelopeBytes else { throw SyncError.tooLarge }
+        // 1 — coarse wire-allocation guard before parsing. This is derived from the
+        // legal base64url expansion plus JSON headroom; §3.1's binding cap is checked
+        // on decoded ciphertext below.
+        guard wireBytes.count <= SyncProtocol.maxWireEnvelopeBytes else { throw SyncError.tooLarge }
 
         // 2 — strict parse (§3), unknown top-level fields rejected.
         let env = try Envelope.parse(wireBytes: wireBytes)
@@ -92,6 +94,11 @@ public final class EnvelopeReceiver {
             ciphertextBytes = try Base64URL.decode(env.ciphertextB64u)
         } catch {
             throw SyncError.decryptFailed
+        }
+        // §3.1: measure the decoded AEAD output including its tag, not the JSON body or
+        // base64url character count. This check precedes signature or AEAD work.
+        guard ciphertextBytes.count <= SyncProtocol.maxCiphertextBytes else {
+            throw SyncError.tooLarge
         }
         guard nonceBytes.count == SyncProtocol.nonceBytes,
               ciphertextBytes.count > SyncProtocol.tagBytes

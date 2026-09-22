@@ -19,7 +19,8 @@ public struct Envelope: Sendable {
     public let ciphertextB64u: String
     public let sigB64u: String?
 
-    /// The raw byte length of the envelope as received, for the §3.1 size check.
+    /// The raw byte length of the envelope as received, for diagnostics around the
+    /// coarse pre-parse allocation guard. §3.1's binding cap is on decoded ciphertext.
     public let wireByteCount: Int
 
     private static let allowedKeys: Set<String> = [
@@ -30,7 +31,7 @@ public struct Envelope: Sendable {
     /// 40 MiB body is rejected on a length comparison rather than by allocating it into
     /// a JSON tree first.
     public static func parse(wireBytes: Data) throws -> Envelope {
-        guard wireBytes.count <= SyncProtocol.maxEnvelopeBytes else { throw SyncError.tooLarge }
+        guard wireBytes.count <= SyncProtocol.maxWireEnvelopeBytes else { throw SyncError.tooLarge }
 
         guard let any = try? JSONSerialization.jsonObject(with: wireBytes, options: []),
               let obj = any as? [String: Any]

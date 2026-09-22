@@ -6,7 +6,16 @@ import Foundation
 public enum SyncProtocol {
     public static let version = 1
     public static let suite = "p256-hkdf-sha256"
-    public static let maxEnvelopeBytes = 1_048_576   // §3.1
+    /// §3.1's binding limit is measured after base64url decoding and includes the
+    /// 16-byte GCM tag.
+    public static let maxCiphertextBytes = 1_048_576
+    /// An unpadded base64url encoding needs ceil(4/3 * n) characters at this boundary.
+    public static let maxCiphertextBase64URLCharacters = (maxCiphertextBytes * 4 + 2) / 3
+    /// Coarse pre-parse allocation guard. The 4 KiB is headroom for the fixed JSON
+    /// fields and optional signature; the binding protocol limit remains the decoded
+    /// ciphertext count above. Deriving this total keeps every legal ciphertext
+    /// transportable instead of imposing an unrelated round-number wire cap.
+    public static let maxWireEnvelopeBytes = maxCiphertextBase64URLCharacters + 4_096
     public static let nonceBytes = 12                // §5.1
     public static let tagBytes = 16                  // §5.1
 }
