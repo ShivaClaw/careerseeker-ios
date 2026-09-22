@@ -119,8 +119,28 @@ check("6-digit confirm code matches",
       derived.confirmCode == pairingExpected["confirm"] as! String,
       derived.confirmCode)
 
-// The engine's directional keys are the same two keys the phone derives; the phone side
-// is not a separate derivation, so proving one side byte-for-byte proves the agreement.
+// The phone must derive with its private key and the engine public key. These checks
+// catch a direction swap or a phone-specific derivation fork without adding a corpus.
+let phoneD = hexToData((pairing["phone"] as! [String: Any])["d_hex"] as! String)
+let enginePubB64u = (pairing["engine"] as! [String: Any])["pub_b64u"] as! String
+let phonePriv = try! P256.KeyAgreement.PrivateKey(rawRepresentation: phoneD)
+let enginePub = try! P256.KeyAgreement.PublicKey(
+    x963Representation: try! Base64URL.decode(enginePubB64u))
+let phoneDerived = try! PairingCrypto.derive(
+    ownPrivateKey: phonePriv, peerPublicKey: enginePub, oneTimeSecret: oneTimeSecret
+)
+check("phone k_e2p is byte-identical to engine derivation",
+      phoneDerived.kE2P.withUnsafeBytes { Data($0) }
+        == derived.kE2P.withUnsafeBytes { Data($0) })
+check("phone k_p2e is byte-identical to engine derivation",
+      phoneDerived.kP2E.withUnsafeBytes { Data($0) }
+        == derived.kP2E.withUnsafeBytes { Data($0) })
+check("phone relay token is byte-identical to engine derivation",
+      phoneDerived.relayToken == derived.relayToken)
+check("phone confirm code is byte-identical to engine derivation",
+      phoneDerived.confirmCode == derived.confirmCode)
+
+// The engine's directional keys are the same two keys the phone derives.
 let completion = pairing["completion"] as! [String: Any]
 let completionPlain = try? PairingCrypto.openCompletion(
     ciphertext: try! Base64URL.decode(completion["ciphertext_b64u"] as! String),
@@ -169,6 +189,58 @@ let mitmOpened = try? PairingCrypto.openCompletion(
     key: mitmDerived.kP2E
 )
 check("swapped phone_pub fails the tag (expect decrypt_failed)", mitmOpened == nil)
+
+section("phone sender — seal, signature, and sequence discipline (§5.4, §6.1)")
+
+let docEdit = loadJSON("doc-edit-signed")
+let senderPlaintext = try! JSONSerialization.data(
+    withJSONObject: docEdit["plaintext_json"] as! [String: Any], options: [.sortedKeys])
+let senderTimestamp = (docEdit["envelope_json"] as! [String: Any])["ts"] as! String
+let senderDeviceKey = SoftwareDeviceSigningKey()
+let sender = PhoneEnvelopeSender(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyP2E: phoneDerived.kP2E,
+    deviceSigningKey: senderDeviceKey
+)
+let senderReceiver = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: phoneDerived.kE2P,
+    keyP2E: phoneDerived.kP2E,
+    deviceSigningPublicKey: try! P256.Signing.PublicKey(
+        x963Representation: senderDeviceKey.publicKeyX963)
+)
+
+let senderWire = try! sender.seal(seq: 1, ts: senderTimestamp, plaintext: senderPlaintext)
+do {
+    let accepted = try senderReceiver.accept(wireBytes: senderWire)
+    check("sender-sealed p2e doc_edit opens, verifies, and round-trips its plaintext",
+          accepted.kind == "doc_edit" && accepted.plaintext == senderPlaintext)
+} catch {
+    check("sender-sealed p2e doc_edit opens, verifies, and round-trips its plaintext",
+          false, "rejected \(error)")
+}
+check("sender-sealed p2e doc_edit advances the receiver cursor",
+      senderReceiver.highestAcceptedSeq(.phoneToEngine) == 1,
+      String(senderReceiver.highestAcceptedSeq(.phoneToEngine)))
+
+do {
+    _ = try sender.seal(seq: 1, ts: senderTimestamp, plaintext: senderPlaintext)
+    check("sender refuses a reused p2e sequence", false, "sealed")
+} catch let error as PhoneEnvelopeSenderError {
+    check("sender refuses a reused p2e sequence", error == .nonIncreasingSequence)
+} catch {
+    check("sender refuses a reused p2e sequence", false, "unexpected \(error)")
+}
+do {
+    _ = try sender.seal(seq: 0, ts: senderTimestamp, plaintext: senderPlaintext)
+    check("sender refuses a regressed p2e sequence", false, "sealed")
+} catch let error as PhoneEnvelopeSenderError {
+    check("sender refuses a regressed p2e sequence", error == .nonIncreasingSequence)
+} catch {
+    check("sender refuses a regressed p2e sequence", false, "unexpected \(error)")
+}
 
 // ─────────────────────────────────────────────────────────────── envelopes (§3–§7)
 
