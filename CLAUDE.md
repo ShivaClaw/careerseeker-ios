@@ -47,8 +47,9 @@ menu-bar shell. The engine, the wire spec, and the relay live in
   scripts, `docs/Sync-Protocol.md`, `docs/sync-vectors/`. Cross-repo needs are filed as
   requests.
 - Protocol questions go to the PQ ledger in `careerseeker-android`, prefixed `PQ-IOS-`.
-  Open at time of writing: PQ-IOS-1 (`entitlement_appstore`), PQ-IOS-2 (malformed error
-  code), PQ-IOS-3 (padded-base64 vector — fix lives in upstream `generate.mjs`).
+  Open at time of writing: PQ-IOS-1 (`entitlement_appstore`) and PQ-IOS-3
+  (padded-base64 vector — fix lives in upstream `generate.mjs`). PQ-IOS-2 is closed:
+  structural rejection reports `decrypt_failed`; v1 has no `malformed` wire code.
 - `PlayEntitlementVerifier` is **engine-role**, present only for corpus coverage. No iOS
   client code path may call it; do not grow it.
 - Platform claims: anything requiring Apple hardware (CryptoKit backend, Secure Enclave,

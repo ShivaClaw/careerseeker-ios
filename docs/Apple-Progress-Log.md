@@ -98,3 +98,73 @@ executed evidence are marked UNPROVEN. Newest entry last.
 - Stopped after the required two attempts. Resume on a host with Swift 6 (or the
   repository's Linux CI runtime), run both required gates, then demonstrate the three
   new check groups fail under deliberate mutations before treating T1 as complete.
+
+## 2026-09-22 — T1 reconciled; D1–D6 complete on Linux Swift
+
+- Fresh clone began at `main` `062b79576e4408f534b88cacab6c8de89b3d17fc`;
+  read-only engine clone was `d2c6a9ae88af3ca0ed1257a1afc6e085c5c9d10c`.
+  The Windows host had no Swift executable, its only WSL distribution had no shell, and
+  Docker Desktop did not expose a Linux engine after startup. The required gates were
+  therefore executed in the repository's existing `swift:6.1-noble` GitHub Actions
+  environment. Apple hardware was not used.
+- **T1 verdict: MERGE.** `terra/t1-unvalidated` still pointed exactly to `04d49c0`; its
+  merge base with current `main` was `f3b8ec0`, with `main` 2 commits ahead and T1 1
+  commit ahead. The actual T1 objects contain 4 files, 211 insertions, 2 deletions; no
+  16-line partial push exists. The old anomaly was an uncommitted/line-ending observation,
+  not repository history. Integrated commit `450a7c3` built and passed 50/0 against
+  digest `6366a86092971dfed0d96a560de1095962e6ce172a83b5a46e3037e5af1ab2ba`
+  ([green run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35765897617)).
+  Deliberately corrupting phone peer derivation, suppressing required signatures, and
+  allowing sequence reuse/regression produced 8 failures
+  ([mutation run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35766252001)).
+- **D1:** `swift-crypto` now requires 4.5.1+ and resolves to 4.5.2
+  (`da9d28d69ebe3894b18376c8f2395c2f37b8448f`); release build and the then-current
+  50/0 conformance gate passed with no API changes
+  ([resolver run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35766448623)).
+  Moving engine-role `PlayEntitlementVerifier` out of the public client target is a
+  source/API change, so follow-up [iOS issue #1](https://github.com/ShivaClaw/careerseeker-ios/issues/1)
+  was filed; the verifier did not grow.
+- **D2:** re-vendored the authoritative 29-case corpus byte-for-byte from engine `main`
+  and pinned aggregate digest
+  `f9fe90be5d1b62cfdfeb814f0936ce7df945e51a9743744723ee1775dc06fb6a`.
+  The runner rejects unknown families, accounts for declared/executed/explicitly skipped
+  cases, dispatches high-bit pairing and both entitlement acknowledgements, and uses
+  separate receiver contexts. Its D2 gate reported 29 declared, 28 executed, 1 explicit
+  D4 skip, 62/0
+  ([green run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35767882042));
+  disabling the whole entitlement-ack family failed with both names unaccounted
+  ([mutation run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35768278141)).
+- **D3:** the binding 1 MiB cap is now measured on decoded ciphertext including the tag;
+  a separately derived base64url-plus-4-KiB wire guard protects allocation. The exact
+  1,048,576-byte boundary reaches AEAD, byte 1,048,577 returns `too_large`, and the
+  coarse guard fires pre-parse ([66/0 gate](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35768542930)).
+  The shared maximum-valid vector request is filed as
+  [engine issue #63](https://github.com/ShivaClaw/careerseeker/issues/63); no local-only
+  vector was created.
+- **D4:** the local wire-visible `.malformed` code was removed. Detailed parser errors
+  remain internal and structural rejection maps to `decrypt_failed`. All 29 vectors then
+  executed with zero skips and 67/0, including `invalid-unknown-field`
+  ([green run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35769058371)).
+  PQ-IOS-2 is recorded closed in the Android ledger request below.
+- **D5:** `ReplayBoundary` can be persisted and restored through `EnvelopeReceiver`;
+  negative durable values fail construction. A reconstruction test accepts once, saves
+  the cursor, and rejects the same envelope after restart. The C07 note requires one
+  durable owner to commit replica plus checkpoint atomically and restricts a future
+  notification extension to noncommitting presentation. The full gate reported all 29
+  executed, 71/0
+  ([green run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35769633847));
+  deliberately ignoring restored state made the replay test accept and fail
+  ([mutation run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35769944519)).
+- **D6 / coordination:** Android
+  [issue #7](https://github.com/ShivaClaw/careerseeker-android/issues/7) requests the
+  canonical ledger entries: PQ-IOS-1 remains open with the exact StoreKit/protocol
+  decision requested; PQ-IOS-2 is closed; PQ-IOS-3 remains open. The upstream
+  discriminating padded-base64 generator change is filed as
+  [engine issue #64](https://github.com/ShivaClaw/careerseeker/issues/64).
+- **UNPROVEN:** CryptoKit, Secure Enclave, App Group cross-process storage, Notification
+  Service Extension behavior, any app target, and TestFlight. Linux Swift proves SDK and
+  protocol behavior only.
+- **Brandon decisions — exactly the four program gates:** (1) provide the Apple
+  hardware/Xcode lane; (2) choose independent Swift vs KMP from actual reuse cost;
+  (3) choose the Apple paid/free boundary; (4) decide PQ-IOS-1. No TestFlight clock,
+  purchase, enrollment, or Apple-side action was triggered.
