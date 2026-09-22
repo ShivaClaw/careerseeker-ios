@@ -365,10 +365,6 @@ var envelopeCount = 0
 
 for entry in vectorList where (entry["type"] as? String) == "envelope" {
     let name = entry["name"] as! String
-    if name == "invalid-unknown-field" {
-        skipVector(name, reason: "D4 maps structural rejection from local malformed to wire decrypt_failed")
-        continue
-    }
     let vector = loadJSON(name)
     envelopeCount += 1
     markExecuted(name)
@@ -499,10 +495,8 @@ for entry in vectorList where (entry["type"] as? String) == "entitlement" {
 
 // ─────────────────────────────────────────────── implementation-defined hardening
 
-// Not from the corpus. §3 requires rejecting unknown top-level fields and §3.1 requires
-// a size cap, but neither has a vector, and §7.2 defines no error code for a malformed
-// envelope at all — so these assert this implementation's behaviour and stand as the
-// evidence behind PQ-IOS-2 rather than claiming corpus coverage they do not have.
+// Direct implementation checks complement the shared corpus by pinning additional
+// structural shapes and the exact size boundary in the observable §7.2 vocabulary.
 section("hardening — beyond the corpus (implementation-defined)")
 
 @MainActor
@@ -523,11 +517,12 @@ let baseEnvelope = loadJSON("delta-basic")["envelope_json"] as! [String: Any]
 var withUnknownField = baseEnvelope
 withUnknownField["seq"] = 900
 withUnknownField["x_experimental"] = "anything"
-rejects("unknown top-level field rejected, not ignored (§3)", withUnknownField, .malformed)
+rejects("unknown top-level field maps to decrypt_failed (§3/§7.2)",
+        withUnknownField, .decryptFailed)
 
 var withBoolSeq = baseEnvelope
 withBoolSeq["seq"] = true
-rejects("JSON true is not accepted as seq 1", withBoolSeq, .malformed)
+rejects("JSON true is not accepted as seq 1", withBoolSeq, .decryptFailed)
 
 var wrongPairing = baseEnvelope
 wrongPairing["seq"] = 901

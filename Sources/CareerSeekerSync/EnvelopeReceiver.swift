@@ -62,8 +62,14 @@ public final class EnvelopeReceiver {
         // on decoded ciphertext below.
         guard wireBytes.count <= SyncProtocol.maxWireEnvelopeBytes else { throw SyncError.tooLarge }
 
-        // 2 — strict parse (§3), unknown top-level fields rejected.
-        let env = try Envelope.parse(wireBytes: wireBytes)
+        // 2 — strict parse (§3), unknown top-level fields rejected. Preserve internal
+        // diagnostics inside the parser but expose the closed v1 error vocabulary.
+        let env: Envelope
+        do {
+            env = try Envelope.parse(wireBytes: wireBytes)
+        } catch is EnvelopeParseError {
+            throw SyncError.decryptFailed
+        }
 
         // 3 — version (§7.1), "without attempting decryption".
         guard env.v == SyncProtocol.version else { throw SyncError.versionUnsupported }
@@ -141,7 +147,7 @@ public final class EnvelopeReceiver {
         guard let any = try? JSONSerialization.jsonObject(with: plaintext, options: []),
               let obj = any as? [String: Any],
               let kind = obj["kind"] as? String
-        else { throw SyncError.malformed }
+        else { throw SyncError.decryptFailed }
 
         if PayloadKind.reservedForL2.contains(kind) { throw SyncError.unknownKind }
         guard PayloadKind.isKnown(kind, direction: env.dir) else { throw SyncError.unknownKind }

@@ -3,6 +3,17 @@ import Foundation
 import CoreFoundation
 #endif
 
+/// Internal parse diagnostics. These are useful to a debugger but never cross the wire:
+/// §3 and §7.2 require every structural rejection to be observed as `decrypt_failed`.
+enum EnvelopeParseError: Error, Equatable {
+    case invalidJSON
+    case unknownTopLevelField
+    case invalidFieldType
+    case invalidDirection
+    case invalidSequence
+    case invalidSignatureField
+}
+
 /// The parsed envelope header (§3). Parsing is deliberately strict and hand-rolled
 /// rather than `Codable`: a synthesised `Codable` conformance silently ignores unknown
 /// keys, and §3 says "Other unknown top-level fields MUST be rejected, not ignored. A
@@ -35,10 +46,12 @@ public struct Envelope: Sendable {
 
         guard let any = try? JSONSerialization.jsonObject(with: wireBytes, options: []),
               let obj = any as? [String: Any]
-        else { throw SyncError.malformed }
+        else { throw EnvelopeParseError.invalidJSON }
 
         let keys = Set(obj.keys)
-        guard keys.isSubset(of: allowedKeys) else { throw SyncError.malformed }
+        guard keys.isSubset(of: allowedKeys) else {
+            throw EnvelopeParseError.unknownTopLevelField
+        }
 
         // `v` is read before anything else can reject on it, but the *decision* about a
         // wrong version belongs to the receiver (§7.1 wants version_unsupported, not a
@@ -50,9 +63,11 @@ public struct Envelope: Sendable {
               let keyId = obj["key_id"] as? String,
               let nonce = obj["nonce"] as? String,
               let ciphertext = obj["ciphertext"] as? String
-        else { throw SyncError.malformed }
+        else { throw EnvelopeParseError.invalidFieldType }
 
-        guard let dir = Direction(rawValue: dirRaw) else { throw SyncError.malformed }
+        guard let dir = Direction(rawValue: dirRaw) else {
+            throw EnvelopeParseError.invalidDirection
+        }
 
         // seq must be an integer, not a JSON double that happens to look like one.
         guard let seqNum = obj["seq"] as? NSNumber,
@@ -60,11 +75,13 @@ public struct Envelope: Sendable {
               case let seqDouble = seqNum.doubleValue,
               seqDouble == seqDouble.rounded(),
               abs(seqDouble) <= 9_007_199_254_740_991
-        else { throw SyncError.malformed }
+        else { throw EnvelopeParseError.invalidSequence }
         let seq = seqNum.int64Value
 
         let sig = obj["sig"] as? String
-        if obj["sig"] != nil && sig == nil { throw SyncError.malformed }
+        if obj["sig"] != nil && sig == nil {
+            throw EnvelopeParseError.invalidSignatureField
+        }
 
         return Envelope(
             v: v, pairing: pairing, dir: dir, seq: seq, ts: ts, keyId: keyId,
