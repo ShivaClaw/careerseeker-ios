@@ -110,10 +110,10 @@ Raw log: `docs/evidence/conformance-run-2026-08-13.txt`. Evidence narrative:
   and the check order before v1 ossifies. Corollary for the macOS engine port: CryptoKit
   has no RSA; the Play verifier needs Security.framework
   (`SecKeyVerifySignature`, `.rsaSignatureMessagePKCS1v15SHA1`) on Apple platforms.
-- **PQ-IOS-2:** §3 requires rejecting malformed envelopes; §7.2 defines no error code
-  for it. The Swift implementation raises a local-only `malformed` rather than
-  mislabeling a parse bug as `decrypt_failed`. Spec should add a code or state that
-  malformed input is dropped silently.
+- **PQ-IOS-2 (closed 2026-09-22):** upstream PQ-A2-2 settled that every structural
+  rejection is observed as `decrypt_failed`; v1 deliberately has no `malformed` wire
+  code. Swift now keeps parser diagnostics internal and applies that mapping at the
+  receiver boundary.
 
 ## 7. Roadmap state (vs. `CareerSeeker-CrossPlatform-Roadmap.md`, 2026-07-24)
 
@@ -134,8 +134,8 @@ Superseded or moved by events:
 ## 8. Open decisions (ADR queue for this program)
 
 1. **I1 — iOS stack**: independent Swift (SwiftUI + `CareerSeekerSync`) vs. KMP shared
-   core. Blocked on the `:core` Tink question; needs a `careerseeker-android` bundle.
-   Constrains F1 envelope crypto; precedes Android UI code.
+   core. The old Tink prerequisite is false because Android no longer uses Tink; Brandon
+   must decide from measured reuse cost and the working independent Swift SDK.
 2. **Biometry on the device signing key**: Face-ID-gated enclave key (stronger custody,
    foreground-only actions) vs. `privateKeyUsage`-only (background approve/skip from
    notifications works). Interacts with the Notification Service Extension design.

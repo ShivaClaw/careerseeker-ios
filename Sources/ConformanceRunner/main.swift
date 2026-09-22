@@ -70,6 +70,24 @@ func hexToData(_ hex: String) -> Data {
 
 let index = loadJSON("index")
 let vectorList = index["vectors"] as! [[String: Any]]
+let declaredVectorNames = vectorList.compactMap { $0["name"] as? String }
+let declaredVectorSet = Set(declaredVectorNames)
+let supportedVectorTypes: Set<String> = ["envelope", "pairing", "entitlement", "entitlement_ack"]
+let indexedVectorTypes = Set(vectorList.compactMap { $0["type"] as? String })
+let unknownVectorTypes = indexedVectorTypes.subtracting(supportedVectorTypes).sorted()
+var executedVectorNames: Set<String> = []
+var skippedVectors: [String: String] = [:]
+
+@MainActor
+func markExecuted(_ name: String) {
+    executedVectorNames.insert(name)
+}
+
+@MainActor
+func skipVector(_ name: String, reason: String) {
+    skippedVectors[name] = reason
+    print("  skip \(name) — \(reason)")
+}
 
 print("CareerSeeker Sync v1 — Swift conformance")
 print("  spec       \(index["spec"] as? String ?? "?")")
@@ -78,9 +96,17 @@ print("  cipher     \(index["cipher"] as? String ?? "?")")
 print("  vectors    \(vectorList.count) declared in index.json")
 print("  toolchain  Swift \(swiftVersionString()) · \(cryptoBackendName())")
 
+check("index vector names are unique",
+      declaredVectorSet.count == declaredVectorNames.count,
+      "\(declaredVectorNames.count - declaredVectorSet.count) duplicate(s)")
+check("index contains only supported vector families",
+      unknownVectorTypes.isEmpty,
+      unknownVectorTypes.joined(separator: ", "))
+
 // A manifest, so a passing run is pinned to the bytes it passed against. The corpus is
-// generated and committed upstream; if it moves, this hash moves, and a stale "25/25"
-// cannot be quoted about a corpus that has since changed.
+// generated and committed upstream; if it moves, this hash moves, and a stale count
+// cannot be quoted about a corpus that has since changed. Execution accounting below
+// separately proves that every declared case was dispatched or explicitly skipped.
 let manifest = vectorDigest(dir: vectorDir, names: vectorList.compactMap { $0["name"] as? String } + ["index"])
 print("  corpus     sha256 \(manifest)")
 
@@ -119,8 +145,28 @@ check("6-digit confirm code matches",
       derived.confirmCode == pairingExpected["confirm"] as! String,
       derived.confirmCode)
 
-// The engine's directional keys are the same two keys the phone derives; the phone side
-// is not a separate derivation, so proving one side byte-for-byte proves the agreement.
+// The phone must derive with its private key and the engine public key. These checks
+// catch a direction swap or a phone-specific derivation fork without adding a corpus.
+let phoneD = hexToData((pairing["phone"] as! [String: Any])["d_hex"] as! String)
+let enginePubB64u = (pairing["engine"] as! [String: Any])["pub_b64u"] as! String
+let phonePriv = try! P256.KeyAgreement.PrivateKey(rawRepresentation: phoneD)
+let enginePub = try! P256.KeyAgreement.PublicKey(
+    x963Representation: try! Base64URL.decode(enginePubB64u))
+let phoneDerived = try! PairingCrypto.derive(
+    ownPrivateKey: phonePriv, peerPublicKey: enginePub, oneTimeSecret: oneTimeSecret
+)
+check("phone k_e2p is byte-identical to engine derivation",
+      phoneDerived.kE2P.withUnsafeBytes { Data($0) }
+        == derived.kE2P.withUnsafeBytes { Data($0) })
+check("phone k_p2e is byte-identical to engine derivation",
+      phoneDerived.kP2E.withUnsafeBytes { Data($0) }
+        == derived.kP2E.withUnsafeBytes { Data($0) })
+check("phone relay token is byte-identical to engine derivation",
+      phoneDerived.relayToken == derived.relayToken)
+check("phone confirm code is byte-identical to engine derivation",
+      phoneDerived.confirmCode == derived.confirmCode)
+
+// The engine's directional keys are the same two keys the phone derives.
 let completion = pairing["completion"] as! [String: Any]
 let completionPlain = try? PairingCrypto.openCompletion(
     ciphertext: try! Base64URL.decode(completion["ciphertext_b64u"] as! String),
@@ -146,6 +192,51 @@ if let plain = completionPlain {
     check("device signing key recovered from inside the ciphertext (relay never sees it)",
           trustedDeviceKey != nil)
 }
+markExecuted("pairing-basic")
+
+// The second valid pairing case is deliberately separate from pairing-basic: its
+// confirmation digest has the high bit set and its six-digit rendering starts with a
+// zero, so it catches signed-int and dropped-padding implementations.
+let highBitPairing = loadJSON("pairing-high-bit-confirm")
+let highBitExpected = highBitPairing["expected"] as! [String: Any]
+let highBitEngineD = hexToData((highBitPairing["engine"] as! [String: Any])["d_hex"] as! String)
+let highBitPhonePubB64u = (highBitPairing["phone"] as! [String: Any])["pub_b64u"] as! String
+let highBitSecret = try! Base64URL.decode(highBitPairing["secret_b64u"] as! String)
+let highBitDerived = try! PairingCrypto.derive(
+    ownPrivateKey: try! P256.KeyAgreement.PrivateKey(rawRepresentation: highBitEngineD),
+    peerPublicKey: try! P256.KeyAgreement.PublicKey(
+        x963Representation: try! Base64URL.decode(highBitPhonePubB64u)),
+    oneTimeSecret: highBitSecret
+)
+check("pairing-high-bit-confirm: shared secret matches",
+      hex(highBitDerived.sharedSecret) == highBitExpected["ss_hex"] as! String)
+check("pairing-high-bit-confirm: k_e2p matches",
+      hex(highBitDerived.kE2P.withUnsafeBytes { Data($0) }) == highBitExpected["k_e2p_hex"] as! String)
+check("pairing-high-bit-confirm: k_p2e matches",
+      hex(highBitDerived.kP2E.withUnsafeBytes { Data($0) }) == highBitExpected["k_p2e_hex"] as! String)
+check("pairing-high-bit-confirm: relay token matches",
+      highBitDerived.relayToken == highBitExpected["relay_token_b64u"] as! String)
+check("pairing-high-bit-confirm: provisional token matches",
+      PairingCrypto.provisionalRelayToken(oneTimeSecret: highBitSecret)
+        == highBitExpected["provisional_token_b64u"] as! String)
+check("pairing-high-bit-confirm: unsigned, zero-padded confirmation matches",
+      highBitDerived.confirmCode == highBitExpected["confirm"] as! String,
+      highBitDerived.confirmCode)
+let highBitCompletion = highBitPairing["completion"] as! [String: Any]
+let highBitCompletionPlain = try? PairingCrypto.openCompletion(
+    ciphertext: try! Base64URL.decode(highBitCompletion["ciphertext_b64u"] as! String),
+    nonce: try! Base64URL.decode(highBitCompletion["nonce_b64u"] as! String),
+    aad: PairingCrypto.completionAAD(
+        pairing: index["pairing_id"] as! String,
+        suite: highBitPairing["suite"] as! String,
+        phonePublicKeyB64u: highBitPhonePubB64u
+    ),
+    key: highBitDerived.kP2E
+)
+check("pairing-high-bit-confirm: sealed completion opens and round-trips",
+      highBitCompletionPlain.map { try? JSONValue.parse($0) }
+        == .some(.some(JSONValue.from(highBitCompletion["payload_json"] as! [String: Any]))))
+markExecuted("pairing-high-bit-confirm")
 
 section("pairing — malicious relay key swap (§5.2.2)")
 
@@ -169,6 +260,59 @@ let mitmOpened = try? PairingCrypto.openCompletion(
     key: mitmDerived.kP2E
 )
 check("swapped phone_pub fails the tag (expect decrypt_failed)", mitmOpened == nil)
+markExecuted("pairing-mitm-keyswap")
+
+section("phone sender — seal, signature, and sequence discipline (§5.4, §6.1)")
+
+let docEdit = loadJSON("doc-edit-signed")
+let senderPlaintext = try! JSONSerialization.data(
+    withJSONObject: docEdit["plaintext_json"] as! [String: Any], options: [.sortedKeys])
+let senderTimestamp = (docEdit["envelope_json"] as! [String: Any])["ts"] as! String
+let senderDeviceKey = SoftwareDeviceSigningKey()
+let sender = PhoneEnvelopeSender(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyP2E: phoneDerived.kP2E,
+    deviceSigningKey: senderDeviceKey
+)
+let senderReceiver = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: phoneDerived.kE2P,
+    keyP2E: phoneDerived.kP2E,
+    deviceSigningPublicKey: try! P256.Signing.PublicKey(
+        x963Representation: senderDeviceKey.publicKeyX963)
+)
+
+let senderWire = try! sender.seal(seq: 1, ts: senderTimestamp, plaintext: senderPlaintext)
+do {
+    let accepted = try senderReceiver.accept(wireBytes: senderWire)
+    check("sender-sealed p2e doc_edit opens, verifies, and round-trips its plaintext",
+          accepted.kind == "doc_edit" && accepted.plaintext == senderPlaintext)
+} catch {
+    check("sender-sealed p2e doc_edit opens, verifies, and round-trips its plaintext",
+          false, "rejected \(error)")
+}
+check("sender-sealed p2e doc_edit advances the receiver cursor",
+      senderReceiver.highestAcceptedSeq(.phoneToEngine) == 1,
+      String(senderReceiver.highestAcceptedSeq(.phoneToEngine)))
+
+do {
+    _ = try sender.seal(seq: 1, ts: senderTimestamp, plaintext: senderPlaintext)
+    check("sender refuses a reused p2e sequence", false, "sealed")
+} catch let error as PhoneEnvelopeSenderError {
+    check("sender refuses a reused p2e sequence", error == .nonIncreasingSequence)
+} catch {
+    check("sender refuses a reused p2e sequence", false, "unexpected \(error)")
+}
+do {
+    _ = try sender.seal(seq: 0, ts: senderTimestamp, plaintext: senderPlaintext)
+    check("sender refuses a regressed p2e sequence", false, "sealed")
+} catch let error as PhoneEnvelopeSenderError {
+    check("sender refuses a regressed p2e sequence", error == .nonIncreasingSequence)
+} catch {
+    check("sender refuses a regressed p2e sequence", false, "unexpected \(error)")
+}
 
 // ─────────────────────────────────────────────────────────────── envelopes (§3–§7)
 
@@ -204,7 +348,9 @@ func wireBytes(for vector: [String: Any], name: String) -> Data {
             "ts": "2026-06-11T14:02:11Z",
             "key_id": index["active_key_id"] as! String,
             "nonce": vector["nonce_b64u"] as! String,
-            "ciphertext": String(repeating: "A", count: synthLen),
+            // The vector's synthetic length is in decoded ciphertext bytes, matching
+            // §3.1 and the C# harness. Encode those bytes for the wire representation.
+            "ciphertext": Base64URL.encode(Data(repeating: 0, count: synthLen)),
         ]
         return try! JSONSerialization.data(withJSONObject: envelope)
     }
@@ -221,6 +367,7 @@ for entry in vectorList where (entry["type"] as? String) == "envelope" {
     let name = entry["name"] as! String
     let vector = loadJSON(name)
     envelopeCount += 1
+    markExecuted(name)
 
     let bytes = wireBytes(for: vector, name: name)
     let isValid = vector["valid"] as! Bool
@@ -285,6 +432,79 @@ do {
     }
 }
 
+section("replay boundary — durable restart restoration (§6.2)")
+let restartVector = loadJSON("delta-basic")
+let restartWire = wireBytes(for: restartVector, name: "delta-basic")
+let beforeRestart = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: e2pKey,
+    keyP2E: p2eKey,
+    deviceSigningPublicKey: trustedDeviceKey
+)
+do {
+    _ = try beforeRestart.accept(wireBytes: restartWire)
+    check("pre-restart receiver accepts the first envelope", true)
+} catch {
+    check("pre-restart receiver accepts the first envelope", false, "rejected \(error)")
+}
+let durableBoundary = beforeRestart.replayBoundary
+check("accepted cursor is available for durable commit",
+      durableBoundary.engineToPhone == 1 && durableBoundary.phoneToEngine == 0)
+
+let afterRestart = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: e2pKey,
+    keyP2E: p2eKey,
+    deviceSigningPublicKey: trustedDeviceKey,
+    restoredReplayBoundary: durableBoundary
+)
+do {
+    _ = try afterRestart.accept(wireBytes: restartWire)
+    check("restored receiver rejects a replay after restart", false, "accepted")
+} catch let error as SyncError {
+    check("restored receiver rejects a replay after restart",
+          error == .replayRejected, "got \(error.rawValue)")
+} catch {
+    check("restored receiver rejects a replay after restart", false, "unexpected \(error)")
+}
+
+check("negative durable replay state is rejected instead of reset",
+      ReplayBoundary(engineToPhone: -1, phoneToEngine: 0) == nil)
+
+// Entitlement acknowledgements are an envelope-shaped family with their own receiver
+// context. Do not pack them into the envelope loop: adding a valid high-sequence case to
+// a shared cursor can make later negative cases reject as replays for the wrong reason.
+section("entitlement acknowledgements — engine grant courier (§4.3.3)")
+let entitlementAckReceiver = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    activeKeyId: index["active_key_id"] as! String,
+    keyE2P: e2pKey,
+    keyP2E: p2eKey,
+    deviceSigningPublicKey: trustedDeviceKey
+)
+var entitlementAckCount = 0
+for entry in vectorList where (entry["type"] as? String) == "entitlement_ack" {
+    let name = entry["name"] as! String
+    let vector = loadJSON(name)
+    entitlementAckCount += 1
+    markExecuted(name)
+    do {
+        let accepted = try entitlementAckReceiver.accept(wireBytes: wireBytes(for: vector, name: name))
+        let got = try JSONValue.parse(accepted.plaintext)
+        let want = JSONValue.from(vector["plaintext_json"] as! [String: Any])
+        check("\(name): accepted as entitlement_ack and round-trips",
+              accepted.kind == "entitlement_ack" && got == want)
+    } catch let error as SyncError {
+        check("\(name): accepted as entitlement_ack and round-trips",
+              false, "rejected \(error.rawValue)")
+    } catch {
+        check("\(name): accepted as entitlement_ack and round-trips",
+              false, "unexpected \(error)")
+    }
+}
+
 // ─────────────────────────────────────────────────────────────── entitlement (§4.3.2)
 
 section("entitlement — engine-role Play verification (§4.3.2)")
@@ -294,6 +514,7 @@ print("        no iOS client code path calls this. See PlayEntitlementVerifier.s
 for entry in vectorList where (entry["type"] as? String) == "entitlement" {
     let name = entry["name"] as! String
     let vector = loadJSON(name)
+    markExecuted(name)
     let ent = vector["entitlement"] as! [String: Any]
     let body = (vector["plaintext_json"] as! [String: Any])["body"] as! [String: Any]
 
@@ -315,10 +536,8 @@ for entry in vectorList where (entry["type"] as? String) == "entitlement" {
 
 // ─────────────────────────────────────────────── implementation-defined hardening
 
-// Not from the corpus. §3 requires rejecting unknown top-level fields and §3.1 requires
-// a size cap, but neither has a vector, and §7.2 defines no error code for a malformed
-// envelope at all — so these assert this implementation's behaviour and stand as the
-// evidence behind PQ-IOS-2 rather than claiming corpus coverage they do not have.
+// Direct implementation checks complement the shared corpus by pinning additional
+// structural shapes and the exact size boundary in the observable §7.2 vocabulary.
 section("hardening — beyond the corpus (implementation-defined)")
 
 @MainActor
@@ -339,16 +558,48 @@ let baseEnvelope = loadJSON("delta-basic")["envelope_json"] as! [String: Any]
 var withUnknownField = baseEnvelope
 withUnknownField["seq"] = 900
 withUnknownField["x_experimental"] = "anything"
-rejects("unknown top-level field rejected, not ignored (§3)", withUnknownField, .malformed)
+rejects("unknown top-level field maps to decrypt_failed (§3/§7.2)",
+        withUnknownField, .decryptFailed)
 
 var withBoolSeq = baseEnvelope
 withBoolSeq["seq"] = true
-rejects("JSON true is not accepted as seq 1", withBoolSeq, .malformed)
+rejects("JSON true is not accepted as seq 1", withBoolSeq, .decryptFailed)
 
 var wrongPairing = baseEnvelope
 wrongPairing["seq"] = 901
 wrongPairing["pairing"] = "p_0000000000000000"
 rejects("envelope for another pairing rejected", wrongPairing, .pairingUnknown)
+
+let maximumCiphertext = Data(repeating: 0, count: SyncProtocol.maxCiphertextBytes)
+let maximumCiphertextB64u = Base64URL.encode(maximumCiphertext)
+check("maximum legal ciphertext expands to the derived base64url character cap",
+      maximumCiphertextB64u.count == SyncProtocol.maxCiphertextBase64URLCharacters,
+      "\(maximumCiphertextB64u.count)")
+
+var atCiphertextLimit = baseEnvelope
+atCiphertextLimit["seq"] = 902
+atCiphertextLimit["ciphertext"] = maximumCiphertextB64u
+rejects("maximum legal decoded ciphertext passes the size gate and reaches AEAD",
+        atCiphertextLimit, .decryptFailed)
+
+var overCiphertextLimit = baseEnvelope
+overCiphertextLimit["seq"] = 903
+overCiphertextLimit["ciphertext"] = Base64URL.encode(
+    Data(repeating: 0, count: SyncProtocol.maxCiphertextBytes + 1))
+rejects("first decoded ciphertext byte over the limit is too_large",
+        overCiphertextLimit, .tooLarge)
+
+do {
+    _ = try receiver.accept(
+        wireBytes: Data(repeating: 0x20, count: SyncProtocol.maxWireEnvelopeBytes + 1))
+    check("derived coarse wire-allocation guard rejects before parsing", false, "accepted")
+} catch let error as SyncError {
+    check("derived coarse wire-allocation guard rejects before parsing", error == .tooLarge,
+          "got \(error.rawValue)")
+} catch {
+    check("derived coarse wire-allocation guard rejects before parsing", false,
+          "unexpected \(error)")
+}
 
 check("base64url decoder rejects standard-alphabet input",
       (try? Base64URL.decode("a+b/c")) == nil)
@@ -359,10 +610,28 @@ check("base64url round-trips arbitrary bytes",
 
 // ─────────────────────────────────────────────────────────────── summary
 
+let accountedVectorNames = executedVectorNames.union(skippedVectors.keys)
+let unaccountedVectorNames = declaredVectorSet.subtracting(accountedVectorNames).sorted()
+let undeclaredExecutions = executedVectorNames.subtracting(declaredVectorSet).sorted()
+let undeclaredSkips = Set(skippedVectors.keys).subtracting(declaredVectorSet).sorted()
+check("every declared vector was executed or explicitly skipped",
+      unaccountedVectorNames.isEmpty && undeclaredExecutions.isEmpty && undeclaredSkips.isEmpty,
+      "unaccounted=\(unaccountedVectorNames) undeclared-executed=\(undeclaredExecutions) undeclared-skipped=\(undeclaredSkips)")
+
 print("\n────────────────────────────────────────────")
-print("  envelope vectors consumed : \(envelopeCount)")
+print("  vectors declared          : \(declaredVectorNames.count)")
+print("  vectors executed          : \(executedVectorNames.count)")
+print("  vectors explicitly skipped: \(skippedVectors.count)")
+print("  envelope vectors executed : \(envelopeCount)")
+print("  entitlement acks executed : \(entitlementAckCount)")
 print("  checks passed             : \(passed)")
 print("  checks failed             : \(failed)")
+if !skippedVectors.isEmpty {
+    print("\nexplicit skips:")
+    for (name, reason) in skippedVectors.sorted(by: { $0.key < $1.key }) {
+        print("  · \(name): \(reason)")
+    }
+}
 if failed > 0 {
     print("\nfailures:")
     for f in failures { print("  · \(f)") }

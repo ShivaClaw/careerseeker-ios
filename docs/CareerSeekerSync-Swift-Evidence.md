@@ -23,16 +23,22 @@ Exit code is non-zero on any failure, so it wires into CI as-is
 CareerSeeker Sync v1 — Swift conformance
   suite      p256-hkdf-sha256
   cipher     AES-256-GCM
-  vectors    25 declared in index.json
-  toolchain  Swift 6.3.3 · swift-crypto (BoringSSL)
-  corpus     sha256 6366a860…af1ab2ba
+  vectors    29 declared in index.json
+  toolchain  Swift 6.x · swift-crypto (BoringSSL)
+  corpus     sha256 f9fe90be5d1b62cfdfeb814f0936ce7df945e51a9743744723ee1775dc06fb6a
   ───────────────────────────────────
-  envelope vectors consumed : 18
-  checks passed             : 42
+  vectors declared          : 29
+  vectors executed          : 29
+  vectors explicitly skipped: 0
+  envelope vectors executed : 19
+  entitlement acks executed : 2
+  checks passed             : 71
   checks failed             : 0
 ```
 
-All 25 vectors consumed: 18 envelope, 2 pairing, 5 entitlement. Every valid vector
+All 29 vectors execute: 19 envelope, 3 pairing, 5 entitlement, and 2 entitlement-ack.
+The runner fails if an indexed family is unknown or if any declared case is neither
+executed nor explicitly skipped. Every valid vector
 decrypts to its stated plaintext; every invalid one is rejected **with the code the
 corpus names** — rejecting for the right reason, per §10.
 
@@ -84,12 +90,11 @@ This package uses `_CryptoExtras`, an underscored module with no API-stability p
 A real Apple-platform engine would go through Security.framework's `SecKeyVerifySignature`
 with `.rsaSignatureMessagePKCS1v15SHA1`. The Play verifier does not port for free.
 
-**PQ-IOS-2 — §7.2 has no error code for a malformed envelope.**
-§3 requires rejecting unparseable JSON and unknown top-level fields, but the §7.2 table
-defines nothing to put in an outbound `error` payload for either. This implementation
-raises a local-only `malformed` rather than borrowing a neighbouring code, because
-reporting a parse failure as `decrypt_failed` makes a spec bug look like a crypto bug in
-the field. Either add a code or state that these are dropped silently.
+**PQ-IOS-2 — CLOSED: structural rejection reports `decrypt_failed`.**
+Upstream PQ-A2-2 settled that v1 deliberately has no `malformed` wire code. This
+implementation keeps detailed parser failures internal and maps them to `decrypt_failed`
+at the receiver boundary. The shared `invalid-unknown-field` case now executes and pins
+that observable result.
 
 **PQ-IOS-3 — `invalid-padded-base64` does not discriminate strict from lenient decoders.**
 Found by mutation testing, not by reading. The vector's nonce (`AAAAAAAAAAAAAAAA==`)
@@ -107,8 +112,8 @@ but a local assertion does not bind the other two implementations.
 
 ## Mutation evidence
 
-A harness that cannot fail proves nothing, so four deliberate defects were introduced and
-reverted:
+A harness that cannot fail proves nothing. The initial campaign introduced and reverted
+four deliberate defects:
 
 | Mutation | Result |
 | --- | --- |
@@ -121,6 +126,12 @@ The `key_id` mutation is the most instructive: the envelope still decrypted, bec
 test key is unchanged and only the id differs. That is exactly the case §5.3 describes —
 *"a superseded pairing whose derived key happens to still decrypt is precisely the case a
 tag check cannot see"* — and the corpus catches it.
+
+The 2026-09-22 session added three more mutation runs: corrupting T1 phone derivation,
+signature emission, and sequence discipline produced 8 failures; leaving the entire
+`entitlement_ack` family undispatched failed declared-vs-executed accounting with both
+case names; and ignoring a restored replay boundary made the restart/replay regression
+fail. The GitHub Actions run links are recorded in `docs/Apple-Progress-Log.md`.
 
 ## Scope
 

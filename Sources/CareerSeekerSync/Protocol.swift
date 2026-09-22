@@ -6,12 +6,22 @@ import Foundation
 public enum SyncProtocol {
     public static let version = 1
     public static let suite = "p256-hkdf-sha256"
-    public static let maxEnvelopeBytes = 1_048_576   // §3.1
+    /// §3.1's binding limit is measured after base64url decoding and includes the
+    /// 16-byte GCM tag.
+    public static let maxCiphertextBytes = 1_048_576
+    /// An unpadded base64url encoding needs ceil(4/3 * n) characters at this boundary.
+    public static let maxCiphertextBase64URLCharacters = (maxCiphertextBytes * 4 + 2) / 3
+    /// Coarse pre-parse allocation guard. The 4 KiB is headroom for the fixed JSON
+    /// fields and optional signature; the binding protocol limit remains the decoded
+    /// ciphertext count above. Deriving this total keeps every legal ciphertext
+    /// transportable instead of imposing an unrelated round-number wire cap.
+    public static let maxWireEnvelopeBytes = maxCiphertextBase64URLCharacters + 4_096
     public static let nonceBytes = 12                // §5.1
     public static let tagBytes = 16                  // §5.1
 }
 
-/// §7.2 error kinds. `malformed` is **not** in the spec's table — see the note below.
+/// §7.2's closed set of observable wire errors. Parser diagnostics are intentionally a
+/// separate internal type and are mapped to `decrypt_failed` at the receiver boundary.
 public enum SyncError: String, Error, Equatable, Sendable {
     case versionUnsupported = "version_unsupported"
     case replayRejected     = "replay_rejected"
@@ -23,14 +33,6 @@ public enum SyncError: String, Error, Equatable, Sendable {
     case pairingUnknown     = "pairing_unknown"
     case tooLarge           = "too_large"
     case unimplemented      = "unimplemented"
-
-    /// Local-only. §3 requires rejecting unparseable JSON and unknown top-level fields,
-    /// but §7.2 defines no code for either, so there is nothing this implementation can
-    /// legitimately put in an outbound `error` payload for that case. Raised as a finding
-    /// (PQ-IOS-2) rather than papered over by borrowing a neighbouring code — reporting
-    /// a parse failure as `decrypt_failed` would make a spec bug look like a crypto bug
-    /// in the field.
-    case malformed = "malformed"
 }
 
 /// §4.3 payload vocabulary, split by direction. A kind valid in one direction is not
