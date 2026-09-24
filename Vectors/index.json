@@ -6,6 +6,7 @@
   "cipher": "AES-256-GCM",
   "max_envelope_bytes": 1048576,
   "active_key_id": "k-2026-06-01",
+  "initial_key_id": "k1",
   "pairing_id": "p_7Fq2mXk9LtVbN3wR",
   "warning": "Published test keys and fixed nonces. Never use in a build.",
   "vectors": [
@@ -180,6 +181,12 @@
     {
       "name": "entitlement-ack-no-order-id",
       "type": "entitlement_ack",
+      "valid": true,
+      "expect_error": null
+    },
+    {
+      "name": "boundary-max-ciphertext",
+      "type": "boundary",
       "valid": true,
       "expect_error": null
     }

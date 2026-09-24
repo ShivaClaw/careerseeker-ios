@@ -8,7 +8,7 @@ import _CryptoExtras
 
 /// §4.3.2 entitlement verification — **engine role, not client role.**
 ///
-/// It is implemented here for one reason: to prove the whole vector corpus is consumable
+/// It is implemented in this corpus-only target for one reason: to prove the whole vector corpus is consumable
 /// by a third implementation, and to make a scope problem visible in code rather than in
 /// a memo. Three facts follow from writing it:
 ///

@@ -168,3 +168,61 @@ executed evidence are marked UNPROVEN. Newest entry last.
   hardware/Xcode lane; (2) choose independent Swift vs KMP from actual reuse cost;
   (3) choose the Apple paid/free boundary; (4) decide PQ-IOS-1. No TestFlight clock,
   purchase, enrollment, or Apple-side action was triggered.
+
+## 2026-09-23 — 30-case re-vendor blocked before CI
+
+- Fresh iOS clone began clean at `main` `38e03c8e5cece30ceaf502fa499cf6ac5e2c7ae8`;
+  read-only engine clone began at `main` `081b5eb611c27f92fb757b88a31ef09a6b945288`.
+  Engine commit `5db3f949aaff1b4b76dd9eedc590aa8e1d471a05` is an ancestor of its
+  current main, with no subsequent corpus changes.
+- Local branch `sol/ios-revendor-20260923` has commit `f3bf611` containing only the
+  verbatim 30-case corpus copy, updated per-file SHA256SUMS, and provenance. The three
+  changed JSON Git blobs match engine `5db3f94` exactly. All 31 SHA256SUMS entries
+  verify. Aggregate runner-method digest computed from those bytes is
+  `326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63`.
+- BLOCKER, attempt 1: `git push -u origin sol/ios-revendor-20260923` returned HTTP
+  403, permission denied to ShivaClaw. GitHub API reported the logged-in account has
+  push permission, but the Git remote still rejected the write.
+- BLOCKER, attempt 2: `gh auth setup-git` followed by the same push returned the same
+  HTTP 403. Per the repository's two-attempt rule, stopped before further implementation.
+- UNPROVEN: CI failure on the new `boundary` family, Linux release build, 30/30
+  conformance, padding and boundary mutations, and Play verifier isolation. No upstream
+  engine files were edited and no iOS PR was created. Resume after Git push credentials
+  are repaired or on a writable host; then push the corpus-only commit first so CI
+  records the expected unknown-family failure before changing the runner.
+
+## 2026-09-23 — Re-vendor resumed; boundary, key-ID pin, and verifier isolation verified
+
+- Push credentials were repaired externally. The corpus-only commit `f3bf611` went up
+  first; its [Linux run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943089648)
+  built but failed conformance exactly as intended: unknown family `boundary`, its
+  case unaccounted, 30 declared / 29 executed / 0 skipped, 69 passed / 2 failed,
+  digest `326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63`.
+- Implementation commit `0948f41` added a dedicated receiver for the boundary family,
+  exact 1 MiB decoded/1,398,102-character wire and plaintext-byte checks, and a same-
+  receiver +1 decoded byte `too_large` check. The fresh-pairing receiver now defaults
+  to `k1`; conformance asserts that value against the vendored `initial_key_id` and
+  rejects the corpus's different mid-life key before decryption. The engine-role Play
+  verifier moved from the client target to a separate corpus-only target; the runner
+  still executes all five Play vectors. `Package.resolved` did not change.
+- The [release build and conformance run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943397509)
+  passed: 30 declared / 30 executed / 0 skipped, 78 passed / 0 failed, digest
+  `326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63`.
+  The client target compiled without errors or new Swift warnings. The workflow file
+  did not change: this credential can push source but lacks GitHub's `workflow` scope.
+- Deliberate mutation evidence, each from the green implementation commit: accepting
+  `=` padding made the rebuilt `invalid-padded-base64` decrypt and **accept**, failing
+  four checks including replay-state fallout
+  ([run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943615242));
+  changing the decoded-byte cap from `<=` to `<` rejected the shared maximum-valid
+  vector and failed two checks
+  ([run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943636513));
+  changing `k1` to `k2` failed the manifest assertion
+  ([run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943668038));
+  and importing the corpus-only module from a client-target file failed the existing
+  release-build gate with `no such module 'CareerSeekerCorpusCoverage'`
+  ([run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943652981)).
+- PQ-IOS-3 is closed on the iOS side by the discriminating upstream vector plus the
+  padding-lenient mutation above; relay this to the Android-owned canonical PQ ledger.
+  PQ-IOS-1 remains Brandon's StoreKit/protocol decision. UNPROVEN: CryptoKit, Secure
+  Enclave, App Group cross-process storage, extension behavior, app target, TestFlight.

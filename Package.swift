@@ -22,8 +22,8 @@ let package = Package(
     ],
     dependencies: [
         // On Apple platforms this dependency is inert: the sources prefer CryptoKit.
-        // _CryptoExtras is used only by the engine-role Play verifier (RSA), never by
-        // the client-role code — see PlayEntitlementVerifier.swift for why that matters.
+        // _CryptoExtras is used only by the separate corpus-coverage target's
+        // engine-role Play verifier (RSA), never by the client-role library.
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.1")
     ],
     targets: [
@@ -31,12 +31,18 @@ let package = Package(
             name: "CareerSeekerSync",
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
+            ]
+        ),
+        .target(
+            name: "CareerSeekerCorpusCoverage",
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "_CryptoExtras", package: "swift-crypto"),
             ]
         ),
         .executableTarget(
             name: "ConformanceRunner",
-            dependencies: ["CareerSeekerSync"]
+            dependencies: ["CareerSeekerSync", "CareerSeekerCorpusCoverage"]
         ),
     ]
 )
