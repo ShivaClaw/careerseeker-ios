@@ -1,5 +1,6 @@
 import Foundation
 import CareerSeekerSync
+import CareerSeekerCorpusCoverage
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -72,7 +73,7 @@ let index = loadJSON("index")
 let vectorList = index["vectors"] as! [[String: Any]]
 let declaredVectorNames = vectorList.compactMap { $0["name"] as? String }
 let declaredVectorSet = Set(declaredVectorNames)
-let supportedVectorTypes: Set<String> = ["envelope", "pairing", "entitlement", "entitlement_ack"]
+let supportedVectorTypes: Set<String> = ["envelope", "pairing", "entitlement", "entitlement_ack", "boundary"]
 let indexedVectorTypes = Set(vectorList.compactMap { $0["type"] as? String })
 let unknownVectorTypes = indexedVectorTypes.subtracting(supportedVectorTypes).sorted()
 var executedVectorNames: Set<String> = []
@@ -102,6 +103,9 @@ check("index vector names are unique",
 check("index contains only supported vector families",
       unknownVectorTypes.isEmpty,
       unknownVectorTypes.joined(separator: ", "))
+check("fresh-pairing key ID matches the shared manifest",
+      SyncProtocol.initialKeyId == index["initial_key_id"] as? String,
+      "client=\(SyncProtocol.initialKeyId) manifest=\(index["initial_key_id"] ?? "missing")")
 
 // A manifest, so a passing run is pinned to the bytes it passed against. The corpus is
 // generated and committed upstream; if it moves, this hash moves, and a stale count
@@ -333,6 +337,26 @@ let receiver = EnvelopeReceiver(
     deviceSigningPublicKey: trustedDeviceKey
 )
 
+// The vector corpus's active_key_id models a mid-life pairing. A newly created
+// receiver instead starts at the §5.3 default pinned separately by index.json.
+let freshPairingReceiver = EnvelopeReceiver(
+    pairingId: index["pairing_id"] as! String,
+    keyE2P: e2pKey,
+    keyP2E: p2eKey,
+    deviceSigningPublicKey: trustedDeviceKey
+)
+do {
+    _ = try freshPairingReceiver.accept(wireBytes: try! JSONSerialization.data(
+        withJSONObject: loadJSON("delta-basic")["envelope_json"] as! [String: Any]))
+    check("fresh-pairing receiver refuses another key ID before decryption", false, "accepted")
+} catch let error as SyncError {
+    check("fresh-pairing receiver refuses another key ID before decryption",
+          error == .keyUnknown, "got \(error.rawValue)")
+} catch {
+    check("fresh-pairing receiver refuses another key ID before decryption", false,
+          "unexpected \(error)")
+}
+
 /// Rebuild the exact wire bytes. Vectors ship `envelope_json` as a parsed object, so it
 /// is re-encoded here; that is safe because every check the receiver makes is either on
 /// a field value or on the AAD it rebuilds itself — none depends on the outer JSON's
@@ -393,6 +417,67 @@ for entry in vectorList where (entry["type"] as? String) == "envelope" {
         }
     } catch {
         check("\(name): rejected with \(expectError ?? "?")", false, "unexpected \(error)")
+    }
+}
+
+// §10.1 gives the maximum-valid case its own family: it cannot be interleaved
+// with the packed envelope suite without changing that suite's replay boundary.
+section("boundary — maximum-valid ciphertext (§3.1, §10.1)")
+var boundaryCount = 0
+for entry in vectorList where (entry["type"] as? String) == "boundary" {
+    let name = entry["name"] as! String
+    let vector = loadJSON(name)
+    boundaryCount += 1
+    markExecuted(name)
+
+    let envelope = vector["envelope_json"] as! [String: Any]
+    let wireCiphertext = envelope["ciphertext"] as! String
+    let publishedCiphertext = vector["ciphertext_b64u"] as! String
+    let decodedCiphertext = try! Base64URL.decode(wireCiphertext)
+    check("\(name): published and wire ciphertext agree",
+          wireCiphertext == publishedCiphertext)
+    check("\(name): unpadded wire spelling is 1,398,102 characters",
+          wireCiphertext.count == 1_398_102 && !wireCiphertext.contains("="),
+          "got \(wireCiphertext.count)")
+    check("\(name): decoded ciphertext including tag is exactly 1 MiB",
+          decodedCiphertext.count == SyncProtocol.maxCiphertextBytes,
+          "got \(decodedCiphertext.count)")
+
+    let boundaryReceiver = EnvelopeReceiver(
+        pairingId: index["pairing_id"] as! String,
+        activeKeyId: index["active_key_id"] as! String,
+        keyE2P: SymmetricKey(data: hexToData(vector["key_hex"] as! String)),
+        keyP2E: p2eKey,
+        deviceSigningPublicKey: trustedDeviceKey
+    )
+    do {
+        let accepted = try boundaryReceiver.accept(wireBytes: wireBytes(for: vector, name: name))
+        let expected = JSONValue.from(vector["plaintext_json"] as! [String: Any])
+        let parsed = try JSONValue.parse(accepted.plaintext)
+        let pad = (((vector["plaintext_json"] as! [String: Any])["body"] as! [String: Any])["pad"] as! String)
+        let exactPlaintext = Data("{\"kind\":\"snapshot\",\"body\":{\"pad\":\"\(pad)\"}}".utf8)
+        check("\(name): accepted and exact plaintext bytes round-trip",
+              parsed == expected && accepted.plaintext == exactPlaintext,
+              "got \(accepted.plaintext.count) plaintext bytes")
+    } catch {
+        check("\(name): accepted and exact plaintext bytes round-trip", false,
+              "rejected \(error)")
+    }
+
+    var overLimit = envelope
+    overLimit["seq"] = (envelope["seq"] as! Int) + 1
+    overLimit["ciphertext"] = Base64URL.encode(
+        Data(repeating: 0, count: SyncProtocol.maxCiphertextBytes + 1))
+    do {
+        _ = try boundaryReceiver.accept(wireBytes: try! JSONSerialization.data(withJSONObject: overLimit))
+        check("\(name): same receiver rejects one decoded byte more as too_large", false,
+              "accepted")
+    } catch let error as SyncError {
+        check("\(name): same receiver rejects one decoded byte more as too_large",
+              error == .tooLarge, "got \(error.rawValue)")
+    } catch {
+        check("\(name): same receiver rejects one decoded byte more as too_large", false,
+              "unexpected \(error)")
     }
 }
 
@@ -624,6 +709,7 @@ print("  vectors executed          : \(executedVectorNames.count)")
 print("  vectors explicitly skipped: \(skippedVectors.count)")
 print("  envelope vectors executed : \(envelopeCount)")
 print("  entitlement acks executed : \(entitlementAckCount)")
+print("  boundary vectors executed : \(boundaryCount)")
 print("  checks passed             : \(passed)")
 print("  checks failed             : \(failed)")
 if !skippedVectors.isEmpty {

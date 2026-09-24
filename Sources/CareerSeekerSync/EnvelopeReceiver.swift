@@ -62,7 +62,7 @@ public final class EnvelopeReceiver {
 
     public init(
         pairingId: String,
-        activeKeyId: String,
+        activeKeyId: String = SyncProtocol.initialKeyId,
         keyE2P: SymmetricKey,
         keyP2E: SymmetricKey,
         deviceSigningPublicKey: P256.Signing.PublicKey?,

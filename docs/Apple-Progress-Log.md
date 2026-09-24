@@ -168,3 +168,25 @@ executed evidence are marked UNPROVEN. Newest entry last.
   hardware/Xcode lane; (2) choose independent Swift vs KMP from actual reuse cost;
   (3) choose the Apple paid/free boundary; (4) decide PQ-IOS-1. No TestFlight clock,
   purchase, enrollment, or Apple-side action was triggered.
+
+## 2026-09-23 — 30-case re-vendor blocked before CI
+
+- Fresh iOS clone began clean at `main` `38e03c8e5cece30ceaf502fa499cf6ac5e2c7ae8`;
+  read-only engine clone began at `main` `081b5eb611c27f92fb757b88a31ef09a6b945288`.
+  Engine commit `5db3f949aaff1b4b76dd9eedc590aa8e1d471a05` is an ancestor of its
+  current main, with no subsequent corpus changes.
+- Local branch `sol/ios-revendor-20260923` has commit `f3bf611` containing only the
+  verbatim 30-case corpus copy, updated per-file SHA256SUMS, and provenance. The three
+  changed JSON Git blobs match engine `5db3f94` exactly. All 31 SHA256SUMS entries
+  verify. Aggregate runner-method digest computed from those bytes is
+  `326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63`.
+- BLOCKER, attempt 1: `git push -u origin sol/ios-revendor-20260923` returned HTTP
+  403, permission denied to ShivaClaw. GitHub API reported the logged-in account has
+  push permission, but the Git remote still rejected the write.
+- BLOCKER, attempt 2: `gh auth setup-git` followed by the same push returned the same
+  HTTP 403. Per the repository's two-attempt rule, stopped before further implementation.
+- UNPROVEN: CI failure on the new `boundary` family, Linux release build, 30/30
+  conformance, padding and boundary mutations, and Play verifier isolation. No upstream
+  engine files were edited and no iOS PR was created. Resume after Git push credentials
+  are repaired or on a writable host; then push the corpus-only commit first so CI
+  records the expected unknown-family failure before changing the runner.

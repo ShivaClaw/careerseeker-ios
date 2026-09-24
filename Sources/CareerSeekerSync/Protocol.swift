@@ -6,6 +6,9 @@ import Foundation
 public enum SyncProtocol {
     public static let version = 1
     public static let suite = "p256-hkdf-sha256"
+    /// §5.3: every fresh pairing begins on this fixed key ID. Rotation is a
+    /// separate, presently unshipped protocol action that names its successor.
+    public static let initialKeyId = "k1"
     /// §3.1's binding limit is measured after base64url decoding and includes the
     /// 16-byte GCM tag.
     public static let maxCiphertextBytes = 1_048_576
