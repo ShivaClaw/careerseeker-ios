@@ -2,21 +2,27 @@
   "type": "envelope",
   "name": "invalid-padded-base64",
   "valid": false,
-  "notes": "Padded base64 must be rejected rather than leniently accepted. Accepting both spellings means the vectors no longer pin one encoding.",
+  "notes": "Padded base64 must be rejected rather than leniently accepted: accepting both spellings means the vectors no longer pin one encoding. Discriminating by construction (PQ-IOS-3): the decoded bytes are a valid sealed delta at an unused seq, so a decoder relaxed to accept padding decrypts and ACCEPTS this envelope -- the rejection is attributable to strict base64url alone. ciphertext_b64u is the canonical unpadded spelling of the same bytes; envelope_json.ciphertext is the padded wire spelling under test.",
   "key_hex": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
-  "aad": "v=1|pairing=p_7Fq2mXk9LtVbN3wR|dir=e2p|seq=10|ts=2026-06-11T14:02:11Z|key_id=k-2026-06-01",
-  "nonce_b64u": "AAAAAAAAAAAAAAAA==",
-  "plaintext_json": null,
-  "ciphertext_b64u": "AAAA==",
+  "aad": "v=1|pairing=p_7Fq2mXk9LtVbN3wR|dir=e2p|seq=13|ts=2026-06-11T14:02:11Z|key_id=k-2026-06-01",
+  "nonce_b64u": "A0KEQ2NT-q_n6Uf5",
+  "plaintext_json": {
+    "kind": "delta",
+    "body": {
+      "since_seq": 48211,
+      "note": "padded-base64 discriminator."
+    }
+  },
+  "ciphertext_b64u": "CATEsMT6py-jTp52yfYIr8DkfdBaoBFNIKNNPkKYXzb-A_T8NwJeTyBncH4PI637PooobsYI60Hjk1RUfckAwZW7ApKYVH93Im8t_aNVvRVMc6oOB7ks2Up2BAf6HFcZbw",
   "envelope_json": {
     "v": 1,
     "pairing": "p_7Fq2mXk9LtVbN3wR",
     "dir": "e2p",
-    "seq": 10,
+    "seq": 13,
     "ts": "2026-06-11T14:02:11Z",
     "key_id": "k-2026-06-01",
-    "nonce": "AAAAAAAAAAAAAAAA==",
-    "ciphertext": "AAAA=="
+    "nonce": "A0KEQ2NT-q_n6Uf5",
+    "ciphertext": "CATEsMT6py-jTp52yfYIr8DkfdBaoBFNIKNNPkKYXzb-A_T8NwJeTyBncH4PI637PooobsYI60Hjk1RUfckAwZW7ApKYVH93Im8t_aNVvRVMc6oOB7ks2Up2BAf6HFcZbw=="
   },
   "expect_error": "decrypt_failed"
 }
