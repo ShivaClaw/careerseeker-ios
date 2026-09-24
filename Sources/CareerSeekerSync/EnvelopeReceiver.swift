@@ -137,7 +137,7 @@ public final class EnvelopeReceiver {
         }
         // §3.1: measure the decoded AEAD output including its tag, not the JSON body or
         // base64url character count. This check precedes signature or AEAD work.
-        guard ciphertextBytes.count <= SyncProtocol.maxCiphertextBytes else {
+        guard ciphertextBytes.count < SyncProtocol.maxCiphertextBytes else { // deliberate mutation
             throw SyncError.tooLarge
         }
         guard nonceBytes.count == SyncProtocol.nonceBytes,
