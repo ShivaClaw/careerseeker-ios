@@ -1,4 +1,5 @@
 import Foundation
+import CareerSeekerCorpusCoverage // deliberate client-target import mutation
 
 /// Wire constants from Sync-Protocol.md v1. Values here are the *spec's* strings, not
 /// convenience names — they appear in `error` payloads and in the vector corpus, so
