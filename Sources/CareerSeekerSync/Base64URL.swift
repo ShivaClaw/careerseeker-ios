@@ -52,10 +52,10 @@ public enum Base64URL {
     }
 
     public static func decode(_ s: String) throws -> Data {
-        if s.contains("=") { throw DecodeError.padded }
+        let normalized = s.replacingOccurrences(of: "=", with: "") // deliberate mutation
         if s.contains("+") || s.contains("/") { throw DecodeError.standardAlphabet }
 
-        let chars = Array(s.utf8)
+        let chars = Array(normalized.utf8)
         // A base64 quantum of 1 character cannot encode any whole byte.
         if chars.count % 4 == 1 { throw DecodeError.invalidLength }
 
