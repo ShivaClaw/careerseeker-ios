@@ -59,5 +59,8 @@ leave the site truthful about availability.
 The website source is `site-v3`; its `release.json` currently has Windows and Android
 entries but no iOS release field. Any iPhone card needs a deliberate source-schema and
 `build.py` change under the canonical design contract, followed by preview and live
-`/download/` checks. Never present the Swift package, an unsigned `.ipa`, or a pending
+`/download/` checks. Audit its other generated iPhone-status copy too (home/FAQ,
+`/dashboard/`, trust, and privacy) so one available card does not coexist with an
+"in development" or unverified privacy claim elsewhere. Never present the Swift
+package, an unsigned `.ipa`, or a pending
 TestFlight invitation as an available iPhone alpha.
