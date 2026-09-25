@@ -238,9 +238,11 @@ executed evidence are marked UNPROVEN. Newest entry last.
 - `docs/Alpha-Release-Gates.md` records the concrete path from a KMP Apple framework
   through real app/device/TestFlight proof to a truthful `careerseeker.app/download/`
   link. It keeps DS-8.2/O3 and the canonical DS-8.3 UI checklist in force. Android
-  draft PR #12 moves protocol, pull policy, Ktor relay and token handover, base64url,
-  and envelope parser
+  draft PR #12 moves protocol, pull policy, Ktor relay and token handover, QR invite
+  validation, base64url, and envelope parser
   source; its Apple framework, crypto, and vectors are still unproven.
+  Its latest Windows-side core gate passed 375/0 and app tests passed 84/0
+  separately; bypassing the QR suite guard failed one common parser test.
 - `docs/Apple-Handoff.md` now labels its older paid-app and independent-Swift
   assumptions as historical, pending the design contract's O3 and alpha boundary.
 - The Windows host has no `swift` executable (`Get-Command` and `where.exe` found none),

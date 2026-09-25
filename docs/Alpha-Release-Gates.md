@@ -28,8 +28,8 @@ That is protocol evidence, not iPhone execution evidence.
    The configured Gradle task is `:core:assembleCareerSeekerCoreXCFramework`; task
    discovery on Windows proves configuration only, not an Apple link.
    Android JVM behavior must remain green. Draft Android KMP PR #12 moves protocol
-   vocabulary, pull policy, relay transport and token handover, a compatible
-   base64url codec, and strict envelope parsing,
+   vocabulary, pull policy, relay transport and token handover, QR invite
+   validation, a compatible base64url codec, and strict envelope parsing,
    but it is **not** this gate.
 2. Run the shared 30-case corpus against the actual iOS implementation. Record the
    corpus digest, declared/executed/skipped accounting, expected error codes, and a
