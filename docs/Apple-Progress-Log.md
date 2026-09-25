@@ -226,3 +226,25 @@ executed evidence are marked UNPROVEN. Newest entry last.
   padding-lenient mutation above; relay this to the Android-owned canonical PQ ledger.
   PQ-IOS-1 remains Brandon's StoreKit/protocol decision. UNPROVEN: CryptoKit, Secure
   Enclave, App Group cross-process storage, extension behavior, app target, TestFlight.
+
+## 2026-09-25 — Alpha release gate made explicit; no Apple build claimed
+
+- Fresh clone began clean at `main` `bba24bd57636a1428cb9066666e0e6832bf874e5`.
+  The existing Linux Swift evidence remains 30/30 vectors, 78/0 checks, corpus digest
+  `326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63`
+  ([run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943397509));
+  this session did not rerun it. `README.md` now matches that pinned record and notes
+  the later padded-base64 mutation that closed PQ-IOS-3 on the iOS side.
+- `docs/Alpha-Release-Gates.md` records the concrete path from a KMP Apple framework
+  through real app/device/TestFlight proof to a truthful `careerseeker.app/download/`
+  link. It keeps DS-8.2/O3 and the canonical DS-8.3 UI checklist in force. Android
+  draft PR #12 moves only pure Kotlin protocol and pull-policy source; its Apple
+  framework, crypto, and vectors are still unproven.
+- The Windows host has no `swift` executable (`Get-Command` and `where.exe` found none),
+  so the required release build and conformance gates cannot run locally. No Swift
+  source or workflow changed here; this is a documentation/readiness PR, not a new
+  conformance claim.
+- UNPROVEN: Apple target compilation, CryptoKit/Secure Enclave, any iOS app target,
+  on-device pairing/sync, signing, TestFlight, and public install link. Remains:
+  Brandon's O3/bundle/free-alpha decisions and Apple account/build-lane access, then
+  the implementation and evidence gates in `Alpha-Release-Gates.md`.

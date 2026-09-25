@@ -4,8 +4,8 @@ A client-role implementation of **Sync-Protocol v1** (`docs/Sync-Protocol.md` in
 `ShivaClaw/careerseeker`) plus a conformance runner that proves it against the shared
 vector corpus.
 
-This is the seed of the iOS dashboard's sync layer. It exists now, before there is a Mac,
-an Apple Developer account, or an iOS app, because the protocol was deliberately built so
+This is the seed of the iOS dashboard's sync layer. It exists before an iOS app target
+or an Apple-platform validation pass, because the protocol was deliberately built so
 a third implementation could be validated independently — §10: *"a generator written in
 the same language as its verifier proves only that the language agrees with itself."*
 
@@ -23,20 +23,24 @@ Exit code is non-zero on any failure, so it wires into CI as-is
 CareerSeeker Sync v1 — Swift conformance
   suite      p256-hkdf-sha256
   cipher     AES-256-GCM
-  vectors    29 declared in index.json
+  vectors    30 declared in index.json
   toolchain  Swift 6.x · swift-crypto (BoringSSL)
-  corpus     sha256 f9fe90be5d1b62cfdfeb814f0936ce7df945e51a9743744723ee1775dc06fb6a
+  corpus     sha256 326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63
   ───────────────────────────────────
-  vectors declared          : 29
-  vectors executed          : 29
+  vectors declared          : 30
+  vectors executed          : 30
   vectors explicitly skipped: 0
   envelope vectors executed : 19
   entitlement acks executed : 2
-  checks passed             : 71
+  boundary vectors executed : 1
+  checks passed             : 78
   checks failed             : 0
 ```
 
-All 29 vectors execute: 19 envelope, 3 pairing, 5 entitlement, and 2 entitlement-ack.
+All 30 vectors execute: 19 envelope, 3 pairing, 5 entitlement, 2 entitlement-ack,
+and 1 maximum-valid boundary case. This is the last verified
+[Linux release/conformance run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943397509),
+not a local run on this host.
 The runner fails if an indexed family is unknown or if any declared case is neither
 executed nor explicitly skipped. Every valid vector
 decrypts to its stated plaintext; every invalid one is rejected **with the code the
@@ -96,19 +100,12 @@ implementation keeps detailed parser failures internal and maps them to `decrypt
 at the receiver boundary. The shared `invalid-unknown-field` case now executes and pins
 that observable result.
 
-**PQ-IOS-3 — `invalid-padded-base64` does not discriminate strict from lenient decoders.**
-Found by mutation testing, not by reading. The vector's nonce (`AAAAAAAAAAAAAAAA==`)
-strips to exactly 12 bytes and its ciphertext (`AAAA==`) to 3 — below the 16-byte tag. So
-a lenient decoder that strips padding still fails, at the length check or the tag, and
-still returns `decrypt_failed`: **the expected code, for the wrong reason.** A permissive
-implementation passes this vector. That is precisely the failure mode §10 warns about,
-appearing in the corpus itself rather than in a consumer of it.
-
-Fix direction: give the padded vector a ciphertext long enough to reach the AEAD, so a
-lenient decoder produces a *decryptable* envelope and visibly accepts something it must
-reject. Until then, strict base64 is untested on the C# and Kotlin sides too — this is
-not an iOS-specific gap. Local coverage is asserted in the runner's hardening section,
-but a local assertion does not bind the other two implementations.
+**PQ-IOS-3 — closed on the iOS side.** The old `invalid-padded-base64` vector was
+non-discriminating: a lenient decoder could strip padding and still reject later for the
+same error code. The re-vendored 30-case corpus supplies decryptable padded ciphertext;
+deliberately accepting `=` now causes a conformance failure. The upstream mutation and
+digest evidence are in `docs/Apple-Progress-Log.md` (2026-09-23). The Android-owned
+canonical PQ ledger still needs its own closure record.
 
 ## Mutation evidence
 
@@ -120,7 +117,7 @@ four deliberate defects:
 | Drop the reserved-L2-kind check (accept `kill`) | **caught** — `invalid-reserved-kind-l2` accepted |
 | Trust the envelope-supplied device key instead of the pairing's | **caught** — `sig-by-revoked-key` accepted |
 | Skip the pre-decrypt `key_id` check, rely on the AEAD tag | **caught** — `invalid-unknown-key-id` accepted |
-| Make base64url lenient (accept padding) | **not caught** — see PQ-IOS-3 |
+| Make base64url lenient (accept padding) | **initially not caught; caught** by the re-vendored 30-case corpus — see PQ-IOS-3 and the 2026-09-23 mutation run |
 
 The `key_id` mutation is the most instructive: the envelope still decrypted, because the
 test key is unchanged and only the id differs. That is exactly the case §5.3 describes —
