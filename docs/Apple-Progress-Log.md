@@ -239,8 +239,9 @@ executed evidence are marked UNPROVEN. Newest entry last.
   through real app/device/TestFlight proof to a truthful `careerseeker.app/download/`
   link. It keeps DS-8.2/O3 and the canonical DS-8.3 UI checklist in force. Android
   draft PR #12 moves protocol, pull policy, Ktor relay, base64url, and envelope parser
-  source; its Apple
-  framework, crypto, and vectors are still unproven.
+  source; its Apple framework, crypto, and vectors are still unproven.
+- `docs/Apple-Handoff.md` now labels its older paid-app and independent-Swift
+  assumptions as historical, pending the design contract's O3 and alpha boundary.
 - The Windows host has no `swift` executable (`Get-Command` and `where.exe` found none),
   so the required release build and conformance gates cannot run locally. No Swift
   source or workflow changed here; this is a documentation/readiness PR, not a new
