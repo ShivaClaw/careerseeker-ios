@@ -26,7 +26,8 @@ That is protocol evidence, not iPhone execution evidence.
    macOS, with an explicit native crypto boundary. Kotlin/Native cannot directly import
    Swift-only CryptoKit ([interop docs](https://kotlinlang.org/docs/native-objc-interop.html)).
    Android JVM behavior must remain green. Draft Android KMP PR #12 moves protocol
-   vocabulary, pull policy, and relay transport, but it is **not** this gate.
+   vocabulary, pull policy, relay transport, and a compatible base64url codec,
+   but it is **not** this gate.
 2. Run the shared 30-case corpus against the actual iOS implementation. Record the
    corpus digest, declared/executed/skipped accounting, expected error codes, and a
    deliberate failing mutation. The existing Linux Swift run is not a substitute for

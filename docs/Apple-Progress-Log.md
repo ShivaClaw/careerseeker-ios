@@ -238,7 +238,7 @@ executed evidence are marked UNPROVEN. Newest entry last.
 - `docs/Alpha-Release-Gates.md` records the concrete path from a KMP Apple framework
   through real app/device/TestFlight proof to a truthful `careerseeker.app/download/`
   link. It keeps DS-8.2/O3 and the canonical DS-8.3 UI checklist in force. Android
-  draft PR #12 moves pure Kotlin protocol, pull policy, and Ktor relay source; its Apple
+  draft PR #12 moves protocol, pull policy, Ktor relay, and base64url source; its Apple
   framework, crypto, and vectors are still unproven.
 - The Windows host has no `swift` executable (`Get-Command` and `where.exe` found none),
   so the required release build and conformance gates cannot run locally. No Swift
