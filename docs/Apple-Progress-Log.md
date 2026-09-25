@@ -279,3 +279,13 @@ executed evidence are marked UNPROVEN. Newest entry last.
 - This is shared protocol code, not Apple execution evidence. No Apple crypto
   provider, framework build, Swift bridge, iOS app, or TestFlight build exists yet.
   No Swift source or workflow changed, so no new Swift conformance is claimed.
+
+## 2026-09-25 — Common receiver signature boundary tests
+
+- Android draft PR #12 added common tests for e2p signature placement before crypto,
+  p2e signature verification before replay-cursor commit, and reserved L2 kind
+  rejection before signature verification. The full core suite passed 386/0.
+  Deliberately bypassing native signature verification failed 1/6 focused common
+  receiver tests; the guard was restored and the full core suite rerun green.
+- No Apple target or Swift bridge was compiled. These tests strengthen the shared
+  decision layer, not the still-missing signed iPhone build.
