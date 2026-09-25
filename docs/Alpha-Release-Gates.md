@@ -25,6 +25,9 @@ That is protocol evidence, not iPhone execution evidence.
 1. The KMP `:core` framework must compile for `iosArm64` and `iosSimulatorArm64` on
    macOS, with an explicit native crypto boundary. Kotlin/Native cannot directly import
    Swift-only CryptoKit ([interop docs](https://kotlinlang.org/docs/native-objc-interop.html)).
+   The current framework exports through Objective-C headers: inspect the generated
+   `DigestPort` protocol and compile a Swift CryptoKit implementation before treating
+   that bridge as viable. The separate Swift-export mode is not configured here.
    The configured Gradle task is `:core:assembleCareerSeekerCoreXCFramework`; task
    discovery on Windows proves configuration only, not an Apple link.
    Android JVM behavior must remain green. Draft Android KMP PR #12 moves protocol

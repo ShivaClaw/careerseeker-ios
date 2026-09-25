@@ -241,9 +241,11 @@ executed evidence are marked UNPROVEN. Newest entry last.
   draft PR #12 moves protocol, pull policy, Ktor relay and token handover, QR invite
   validation, base64url, envelope parser, HKDF, and pairing derivation
   source; its Apple framework, crypto, and vectors are still unproven.
-  Its latest Windows-side core gate passed 375/0 and app tests passed 84/0
+  Its latest Windows-side core gate passed 377/0 and app tests passed 84/0
   separately with one Gradle worker; bypassing the QR suite guard failed one
   common parser test, and omitting HKDF `info` failed four focused tests.
+  The generated Objective-C interface and a Swift `DigestPort` implementation
+  remain UNPROVEN on macOS; this build has not enabled Kotlin's separate Swift-export mode.
 - `docs/Apple-Handoff.md` now labels its older paid-app and independent-Swift
   assumptions as historical, pending the design contract's O3 and alpha boundary.
 - The Windows host has no `swift` executable (`Get-Command` and `where.exe` found none),
