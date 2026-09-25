@@ -260,3 +260,22 @@ executed evidence are marked UNPROVEN. Newest entry last.
   on-device pairing/sync, signing, TestFlight, and public install link. Remains:
   Brandon's O3/bundle/free-alpha decisions and Apple account/build-lane access, then
   the implementation and evidence gates in `Alpha-Release-Gates.md`.
+
+## 2026-09-25 — Shared ordered receiver added to Android KMP draft
+
+- Android draft PR #12 now carries `EnvelopeReceiverCore` in `commonMain` with
+  `EnvelopeCryptoPort` for AEAD open and signature verification. The JVM
+  `EnvelopeReceiver` delegates to it without changing Android callers. The shared
+  receiver preserves the v1 order: version, key ID, structural decode, decoded
+  ciphertext size, signature placement, replay, decrypt, kind, signature, then
+  cursor commit. Three common tests assert key-ID and replay checks precede crypto
+  and that decryption failure does not burn a sequence number.
+- The restored Windows build passed the Android-free check, common compilation,
+  383 core tests with zero failures, Android debug assembly, and lint. A deliberate
+  bypass of the early key-ID check failed 1/3 focused common tests; the guard was
+  restored and the full core gate rerun. The app suite passed 84/84 on its second
+  run. Its first run completed 84 tests with one existing Compose fixture-screen
+  timeout; that flake remains unresolved.
+- This is shared protocol code, not Apple execution evidence. No Apple crypto
+  provider, framework build, Swift bridge, iOS app, or TestFlight build exists yet.
+  No Swift source or workflow changed, so no new Swift conformance is claimed.

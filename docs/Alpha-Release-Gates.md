@@ -33,8 +33,9 @@ That is protocol evidence, not iPhone execution evidence.
    Android JVM behavior must remain green. Draft Android KMP PR #12 moves protocol
    vocabulary, pull policy, relay transport and token handover, QR invite
    validation, a compatible base64url codec, strict envelope parsing, and shared
-   HKDF/pairing derivation behind `DigestPort`, and pairing-completion assembly
-   behind `PairingCryptoPort`,
+   HKDF/pairing derivation behind `DigestPort`, pairing-completion assembly
+   behind `PairingCryptoPort`, and the ordered envelope receiver/replay cursor
+   behind `EnvelopeCryptoPort`,
    but it is **not** this gate.
 2. Run the shared 30-case corpus against the actual iOS implementation. Record the
    corpus digest, declared/executed/skipped accounting, expected error codes, and a
