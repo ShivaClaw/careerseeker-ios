@@ -239,11 +239,15 @@ executed evidence are marked UNPROVEN. Newest entry last.
   through real app/device/TestFlight proof to a truthful `careerseeker.app/download/`
   link. It keeps DS-8.2/O3 and the canonical DS-8.3 UI checklist in force. Android
   draft PR #12 moves protocol, pull policy, Ktor relay and token handover, QR invite
-  validation, base64url, envelope parser, HKDF, and pairing derivation
+  validation, base64url, envelope parser, HKDF, pairing derivation, and
+  pairing-completion assembly
   source; its Apple framework, crypto, and vectors are still unproven.
-  Its latest Windows-side core gate passed 377/0 and app tests passed 84/0
+  Its latest Windows-side core gate passed 380/0 and app tests passed 84/0
   separately with one Gradle worker; bypassing the QR suite guard failed one
-  common parser test, and omitting HKDF `info` failed four focused tests.
+  common parser test, omitting HKDF `info` failed four focused tests, and omitting
+  the phone public key from completion AAD failed one common completion test.
+  The latest full app-suite attempt timed out once in the existing Compose
+  provenance-banner test before passing on retry; this flake is not resolved.
   The generated Objective-C interface and a Swift `DigestPort` implementation
   remain UNPROVEN on macOS; this build has not enabled Kotlin's separate Swift-export mode.
 - `docs/Apple-Handoff.md` now labels its older paid-app and independent-Swift
