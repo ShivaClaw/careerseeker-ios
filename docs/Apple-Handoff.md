@@ -4,6 +4,15 @@
 `careerseeker-ios` as `docs/Apple-Handoff.md`; upload to project knowledge. When this
 document and a repo disagree, the repo wins and this document gets amended.
 
+> **2026-09-25 current-direction note.** This 2026-08-14 handoff is historical
+> orientation, not authority for new iPhone UI or billing decisions. The canonical
+> `ShivaClaw/careerseeker` `docs/Design-System.md` DS-8.2/D4 gives SwiftUI over a
+> shared Kotlin core as the current direction, with O3 awaiting Brandon's
+> confirmation. The Swift sync package here remains valuable conformance/reference
+> code; it is not permission to build a parallel app state machine. The paid-app
+> assumptions below do not decide the first alpha's free/Pro boundary. See
+> `docs/Alpha-Release-Gates.md` for the build-to-download evidence gate.
+
 ---
 
 ## 1. What this program is

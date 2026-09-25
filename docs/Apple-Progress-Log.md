@@ -226,3 +226,66 @@ executed evidence are marked UNPROVEN. Newest entry last.
   padding-lenient mutation above; relay this to the Android-owned canonical PQ ledger.
   PQ-IOS-1 remains Brandon's StoreKit/protocol decision. UNPROVEN: CryptoKit, Secure
   Enclave, App Group cross-process storage, extension behavior, app target, TestFlight.
+
+## 2026-09-25 — Alpha release gate made explicit; no Apple build claimed
+
+- Fresh clone began clean at `main` `bba24bd57636a1428cb9066666e0e6832bf874e5`.
+  The existing Linux Swift evidence remains 30/30 vectors, 78/0 checks, corpus digest
+  `326866efe88887b570aba2ec99a6da66e9a59bdf09c2df28b4292477dd7c8d63`
+  ([run](https://github.com/ShivaClaw/careerseeker-ios/actions/runs/35943397509));
+  this session did not rerun it. `README.md` now matches that pinned record and notes
+  the later padded-base64 mutation that closed PQ-IOS-3 on the iOS side.
+- `docs/Alpha-Release-Gates.md` records the concrete path from a KMP Apple framework
+  through real app/device/TestFlight proof to a truthful `careerseeker.app/download/`
+  link. It keeps DS-8.2/O3 and the canonical DS-8.3 UI checklist in force. Android
+  draft PR #12 moves protocol, pull policy, Ktor relay and token handover, QR invite
+  validation, base64url, envelope parser, HKDF, pairing derivation, and
+  pairing-completion assembly
+  source; its Apple framework, crypto, and vectors are still unproven.
+  Its latest Windows-side core gate passed 380/0 and app tests passed 84/0
+  separately with one Gradle worker; bypassing the QR suite guard failed one
+  common parser test, omitting HKDF `info` failed four focused tests, and omitting
+  the phone public key from completion AAD failed one common completion test.
+  The latest full app-suite attempt timed out once in the existing Compose
+  provenance-banner test before passing on retry; this flake is not resolved.
+  The generated Objective-C interface and a Swift `DigestPort` implementation
+  remain UNPROVEN on macOS; this build has not enabled Kotlin's separate Swift-export mode.
+- `docs/Apple-Handoff.md` now labels its older paid-app and independent-Swift
+  assumptions as historical, pending the design contract's O3 and alpha boundary.
+- The Windows host has no `swift` executable (`Get-Command` and `where.exe` found none),
+  so the required release build and conformance gates cannot run locally. No Swift
+  source or workflow changed here; this is a documentation/readiness PR, not a new
+  conformance claim.
+- UNPROVEN: Apple target compilation, CryptoKit/Secure Enclave, any iOS app target,
+  on-device pairing/sync, signing, TestFlight, and public install link. Remains:
+  Brandon's O3/bundle/free-alpha decisions and Apple account/build-lane access, then
+  the implementation and evidence gates in `Alpha-Release-Gates.md`.
+
+## 2026-09-25 — Shared ordered receiver added to Android KMP draft
+
+- Android draft PR #12 now carries `EnvelopeReceiverCore` in `commonMain` with
+  `EnvelopeCryptoPort` for AEAD open and signature verification. The JVM
+  `EnvelopeReceiver` delegates to it without changing Android callers. The shared
+  receiver preserves the v1 order: version, key ID, structural decode, decoded
+  ciphertext size, signature placement, replay, decrypt, kind, signature, then
+  cursor commit. Three common tests assert key-ID and replay checks precede crypto
+  and that decryption failure does not burn a sequence number.
+- The restored Windows build passed the Android-free check, common compilation,
+  383 core tests with zero failures, Android debug assembly, and lint. A deliberate
+  bypass of the early key-ID check failed 1/3 focused common tests; the guard was
+  restored and the full core gate rerun. The app suite passed 84/84 on its second
+  run. Its first run completed 84 tests with one existing Compose fixture-screen
+  timeout; that flake remains unresolved.
+- This is shared protocol code, not Apple execution evidence. No Apple crypto
+  provider, framework build, Swift bridge, iOS app, or TestFlight build exists yet.
+  No Swift source or workflow changed, so no new Swift conformance is claimed.
+
+## 2026-09-25 — Common receiver signature boundary tests
+
+- Android draft PR #12 added common tests for e2p signature placement before crypto,
+  p2e signature verification before replay-cursor commit, and reserved L2 kind
+  rejection before signature verification. The full core suite passed 386/0.
+  Deliberately bypassing native signature verification failed 1/6 focused common
+  receiver tests; the guard was restored and the full core suite rerun green.
+- No Apple target or Swift bridge was compiled. These tests strengthen the shared
+  decision layer, not the still-missing signed iPhone build.
